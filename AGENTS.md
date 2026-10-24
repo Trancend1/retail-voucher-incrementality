@@ -80,6 +80,14 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 - CLV 52 minggu (USD, net, n=2.500): p10=315 | p50=1.050 | p90=3.135 | p99=6.364.
 - **R9: model kalah dari baseline naif** di holdout 26 minggu — MAE 322,2 vs 307,6 (95% CI selisih +8,6 s.d. +20,5; p_model_worse=1,0); RMSE 488,5 vs 476,3; Spearman 0,773 vs 0,780. Konsekuensi: `clv_52w` hanya deskriptor berlabel; RFM/baseline historis tetap acuan targeting.
 
+### 2.4 Hasil terverifikasi Phase 3 — penetration gap (2026-10-25, sprint-p3)
+
+- Cohort (DL-008): 7 dari 9 sel grid terisi — S1xB3 kosong alami (tidak ada spend-kecil/ragam-luas), S3xB1 (n=4) dimerge ke S2xB1; n terkecil 127, total 2.500.
+- Kategori kandidat per cohort (buyer-rate ≥ 30%, median > 0): 81–211 dari 308 komoditas.
+- Whitespace (DL-009): 25.000 baris = top-10 × 2.500 member (cap terisi penuh semua member); zero-buyer 48,8%; `expected_spend` p50 $18,5 / p99 $268 / max $1.281.
+- Top whitespace global: COUPON/MISC ITEMS (n=1.233 — kategori operator, ditandai untuk dikecualikan dari rekomendasi), lalu BEEF, BEERS/ALES, SOFT DRINKS, DIAPERS & DISPOSABLES.
+- R2: frasa terlarang tidak ada di README/notebook/src — dijaki test `test_banned_phrase_absent_from_deliverables`.
+
 ---
 
 ## 3. Jebakan data (baca sebelum menulis query pertama)
@@ -219,4 +227,4 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Utang terbuka (per 2026-10-24)
 
-**Phase 0–1 & Phase 2 selesai** (sprint-p1 2026-10-24; sprint-p2 2026-10-25): panel + timeline + kelayakan DiD (hasil di §2.2) dan RFM + CLV 52 minggu + evaluasi vs baseline naif (hasil di §2.3, termasuk kekalahan model R9); 33 test hijau. Berikutnya: Phase 3 (category penetration gap). Rencana per phase mengikuti pola sprint (`docs/sprint-*.md`, lokal).
+**Phase 0–3 selesai** (sprint-p1 2026-10-24; sprint-p2 & p3 2026-10-25): panel + timeline + kelayakan DiD (§2.2), RFM + CLV 52 minggu + evaluasi vs baseline naif (§2.3), penetration gap + whitespace per member (§2.4); 40 test hijau. Berikutnya: Phase 4 (campaign DiD) — cut line MVP tinggal Phase 4–5 + dashboard halaman 1–3. Rencana per phase mengikuti pola sprint (`docs/sprint-*.md`, lokal).
