@@ -113,7 +113,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 - Notebook bernomor sesuai urutan phase; nama file stabil karena dirujuk dari README.
 - Kolom mentah `UPPER_CASE`; di layer processed dinormalisasi ke `snake_case` (`household_key`, `week_no`, `net_spend`, ...). Jangan campur dua gaya dalam satu tabel.
 - Semua fungsi random menerima `random_state`/`seed`; default `RANDOM_STATE = 42` di satu tempat.
-- Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain (`hh_week.parquet`, `hh_campaign.parquet`, `hh_category.parquet`, `segments.parquet`).
+- Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini: `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`; bertambah per phase (`campaign_did_results`, `segments`, dst.).
 - Setiap tabel hasil yang masuk dashboard harus punya kolom `n`, `ci_low`, `ci_high` (kalau estimasi) dan `reliability_flag` (kalau campaign).
 
 ---
@@ -122,7 +122,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 
 - Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`; path kernel diperbarui 2026-10-24 setelah repo pindah direktori).
 - Versi terverifikasi di mesin ini (2026-10-23) — core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`; modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`. `causalml` **tidak** dipasang — alternatifnya `econml`.
-- Test runner: `pytest 9.1.1` (2026-10-24), config `pytest.ini`, folder `tests/` — diverifikasi jalan, masih kosong (test ditulis per phase bersama modul `src/`, lihat §7).
+- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 40 test atas data asli (session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
 - `setuptools` ditahan `<81` karena `lifetimes 0.11.3` masih impor `pkg_resources`.
 - Git: branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`.
 - File requirements: `requirements.txt` (inti), `requirements-modeling.txt` (Phase 2/6), `requirements-dev.txt` (pytest), `requirements.lock.txt` (freeze persis). **Perintah setup lengkap ada di README — jangan diduplikasi di sini.** Cek sehat: `python -m pip check` → "No broken requirements found."
@@ -138,7 +138,7 @@ Jebakan lingkungan:
 ## 6. Alur kerja agent
 
 1. **Baca** `AGENTS.md` + `the-complete-journey.md`. Cek `data/` lengkap (8 CSV).
-2. **Mulai dari Phase 0–1.** Jangan menulis kode uplift sebelum timeline campaign dan definisi panel selesai. Hasil Phase 1 menentukan campaign mana yang punya control cukup.
+2. **Ikuti urutan fase** (status resmi ada di README milestone). Estimasi efek (DiD, Phase 4) harus tuntas sebelum uplift modeling (Phase 6). Daftar campaign layak + control pool sudah tersedia di `data/processed/campaign_timeline.parquet` — jangan dihitung ulang dengan definisi lain.
 3. **Kerjakan per phase, bukan per file.** Satu phase = notebook + modul `src/` terkait + artefak parquet + catatan limitation.
 4. **Verifikasi sebelum klaim selesai.** Jalankan notebook end-to-end dari kernel bersih; tempel angka kunci (n, lift, CI) di ringkasan. Jangan menulis "sudah selesai" berdasarkan notebook yang hanya jalan sebagian.
 5. **Setiap phase menambah bagian limitation di README** kalau ada asumsi baru.
@@ -225,6 +225,10 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ---
 
-## 9. Utang terbuka (per 2026-10-24)
+## 9. Status & utang terbuka
 
-**Phase 0–3 selesai** (sprint-p1 2026-10-24; sprint-p2 & p3 2026-10-25): panel + timeline + kelayakan DiD (§2.2), RFM + CLV 52 minggu + evaluasi vs baseline naif (§2.3), penetration gap + whitespace per member (§2.4); 40 test hijau. Berikutnya: Phase 4 (campaign DiD) — cut line MVP tinggal Phase 4–5 + dashboard halaman 1–3. Rencana per phase mengikuti pola sprint (`docs/sprint-*.md`, lokal).
+**Status:** Phase 0–3 selesai dengan DoD penuh — hasil terverifikasi di §2.2–§2.4 (panel & kelayakan DiD; RFM & CLV dengan kekalahan jujur vs baseline naif; penetration gap per member). 40/40 test hijau, 3 notebook ter-render, `main` sinkron dengan remote. Status resmi per phase: README (SOT status).
+
+**Utang terbuka:** tidak ada yang memblokir. Dua hal dibiarkan **disengaja** dan tercatat: (1) 9 RuntimeWarning autograd/lifetimes saat fitting tetap terlihat — memfilter warning numerik bisa menutupi masalah asli; (2) `docs/` (decision log + rencana sprint) lokal/di-gitignore sesuai keputusan user.
+
+**Berikutnya:** Phase 4 (campaign DiD) — rencana lengkap di `docs/sprint-p4.md` (lokal), status draft menunggu persetujuan user sebelum eksekusi. Cut line MVP: tinggal Phase 4–5 + dashboard halaman 1–3 + README.
