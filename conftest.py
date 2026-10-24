@@ -25,7 +25,6 @@ from src.features import (
     compute_control_pool,
     load_campaign_desc,
     load_campaign_treated,
-    product_join_coverage,
     read_day_week_pairs,
     read_households,
     spend_sanity,

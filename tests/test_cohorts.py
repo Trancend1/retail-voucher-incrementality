@@ -17,7 +17,6 @@ from src.cohorts import (
     MIN_BUYER_RATE,
     TOP_N_PER_HOUSEHOLD,
     build_cohorts,
-    build_whitespace,
     household_shares,
 )
 
