@@ -1,8 +1,10 @@
-"""Data-quality assertions for Phase 0-1 step L1 (docs/sprint-p1.md section 7).
+"""Data-quality assertions for the Phase 0-1 panel and timeline.
 
-Checkpoint numbers come from verified facts in AGENTS.md section 2/3.1
-(verified 2026-10-23). If any of these tests fail after a data refresh,
-re-verify AGENTS.md section 2 first — do not relax the test silently.
+The hardcoded numbers below are verified facts recorded in AGENTS.md
+section 2 (subsection 2.2 for phase results). If the raw data is ever
+replaced, some of these tests will fail by design: re-verify the facts in
+AGENTS.md first, then update the expected values — never relax or skip a
+test silently.
 """
 
 import numpy as np
@@ -11,6 +13,7 @@ import pytest
 
 from src.features import (
     LAST_OBSERVED_DAY,
+    N_COMMODITIES,
     build_campaign_timeline,
     build_day_week_bridge,
     build_hh_campaign,
@@ -50,6 +53,36 @@ def timeline(bridge):
     return build_campaign_timeline(load_campaign_desc(), load_campaign_treated(), bridge)
 
 
+@pytest.fixture(scope="session")
+def sanity():
+    return spend_sanity()
+
+
+@pytest.fixture(scope="session")
+def hh_week():
+    return build_hh_week()
+
+
+@pytest.fixture(scope="session")
+def hh_category():
+    return build_hh_category()
+
+
+@pytest.fixture(scope="session")
+def households():
+    return read_households()
+
+
+@pytest.fixture(scope="session")
+def eligible_timeline(timeline, households):
+    return classify_campaign_eligibility(
+        compute_control_pool(load_campaign_treated(), timeline, households)
+    )
+
+
+# --- day-week bridge -------------------------------------------------------
+
+
 def test_bridge_covers_102_contiguous_weeks_ending_at_711(bridge):
     assert bridge["week_no"].tolist() == list(range(1, 103))
     assert int(bridge["min_day"].iloc[0]) == 1
@@ -57,9 +90,13 @@ def test_bridge_covers_102_contiguous_weeks_ending_at_711(bridge):
 
 
 def test_bridge_matches_known_irregular_week_boundaries(bridge):
-    # AGENTS.md section 3 trap 3: week 1 = days 1-5, week 2 = days 6-12.
+    # Week 1 covers days 1-5 and week 2 days 6-12: retailer weeks are not
+    # always 7 days, hence the bridge instead of deriving week from day.
     assert bridge.iloc[0][["min_day", "max_day"]].tolist() == [1, 5]
     assert bridge.iloc[1][["min_day", "max_day"]].tolist() == [6, 12]
+
+
+# --- campaign timeline -----------------------------------------------------
 
 
 def test_timeline_shape_and_columns(timeline):
@@ -69,9 +106,7 @@ def test_timeline_shape_and_columns(timeline):
 
 
 def test_type_mix_matches_verified_counts(timeline):
-    # Read from the full campaign_desc.csv on 2026-10-24: A=5, B=19, C=6.
-    counts = timeline["type"].value_counts().to_dict()
-    assert counts == {"B": 19, "A": 5, "C": 6}
+    assert timeline["type"].value_counts().to_dict() == {"B": 19, "A": 5, "C": 6}
 
 
 def test_overlap_pairs_total_74(timeline):
@@ -111,9 +146,8 @@ def test_n_treated_range_backbone_and_total(timeline):
 
 
 def test_earliest_campaign_starts_week_33(timeline):
-    # Verified against the observed WEEK_NO column (L1, 2026-10-24): day 224
-    # falls in week 33. The old note "minggu 32" in AGENTS.md section 2 came
-    # from the naive floor((DAY-1)/7)+1 formula (trap 3.3) and was corrected.
+    # Day 224 falls in week 33 per the observed WEEK_NO column; the old
+    # "week 32" note came from the naive floor((DAY-1)/7)+1 formula.
     assert int(timeline["start_week"].min()) == 33
     row = timeline.loc[timeline["campaign_id"] == 26].iloc[0]
     assert (row["start_day"], row["start_week"]) == (224, 33)
@@ -137,14 +171,7 @@ def test_campaign_table_type_consistent_with_desc():
     assert (merged["type_tbl"] == merged["type_desc"]).all()
 
 
-# ---------------------------------------------------------------------------
-# L2 — spend sanity (DL-001 / DL-002 confirmation; verified numbers)
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def sanity():
-    return spend_sanity()
+# --- spend sanity ----------------------------------------------------------
 
 
 def test_spend_sanity_confirms_DL001_DL002_counts(sanity):
@@ -154,14 +181,7 @@ def test_spend_sanity_confirms_DL001_DL002_counts(sanity):
     assert sanity["net_min"] < 0  # return rows exist as negative net (kept, not dropped)
 
 
-# ---------------------------------------------------------------------------
-# L3 — balanced hh_week panel
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def hh_week():
-    return build_hh_week()
+# --- hh_week panel ---------------------------------------------------------
 
 
 def test_panel_balanced_2500_by_102_unique(hh_week):
@@ -182,8 +202,7 @@ def test_panel_promo_share_dl004(hh_week):
     assert ps.min(skipna=True) >= 0
     # NA exactly when the week has no valid-denominator row (DL-004)
     assert ps.isna().equals(~(hh_week["promo_denominator"] > 0))
-    # DL-004 sanity: p99 <= 1 (verified 0.7795 on 2026-10-24; max tail 8.25 is
-    # documented, not capped)
+    # DL-004 sanity bound: p99 <= 1 (the thin >1 tail is documented, not capped)
     assert ps.quantile(0.99) <= 1.0
 
 
@@ -196,7 +215,7 @@ def test_panel_recency_dl005(hh_week):
     pre_first = merged["week_no"] < merged["first_week"]
     assert merged.loc[pre_first, "recency_weeks"].isna().all()
     assert merged.loc[~pre_first, "recency_weeks"].notna().all()
-    # Brute-force recheck on a deterministic sample (seed 42, repo convention)
+    # Independent brute-force recheck on a deterministic sample (seed 42)
     rng = np.random.default_rng(42)
     for hh in rng.choice(merged["household_key"].unique(), size=10, replace=False):
         sub = merged[merged["household_key"] == hh]
@@ -210,39 +229,28 @@ def test_panel_recency_dl005(hh_week):
 
 
 def test_panel_return_flag_dl002(hh_week):
-    # 43,478 household-weeks carry a suspect row (verified 2026-10-24);
-    # rows stay in the aggregation, only flagged (DL-002).
+    # Suspect weeks are flagged; the underlying rows stay in the aggregation.
     assert int(hh_week["has_return"].sum()) == 43_478
     assert (hh_week.loc[hh_week["has_return"], "n_suspect_rows"] > 0).all()
 
 
-# ---------------------------------------------------------------------------
-# L4 — product join coverage + hh_category
-# ---------------------------------------------------------------------------
+# --- product coverage and hh_category --------------------------------------
 
 
 def test_product_join_coverage_is_complete():
     cov = product_join_coverage()
     assert cov["n_txn_rows"] == 2_595_732
-    assert cov["n_unmatched_rows"] == 0  # verified 2026-10-24: 100% row coverage
+    assert cov["n_unmatched_rows"] == 0
     assert cov["row_coverage"] == 1.0
 
 
-@pytest.fixture(scope="session")
-def hh_category():
-    return build_hh_category()
-
-
 def test_hh_category_grain_and_total(hh_category, sanity):
-    hh_cat = hh_category
-    assert not hh_cat.duplicated(["household_key", "commodity_desc"]).any()
-    assert hh_cat["commodity_desc"].nunique() == 308  # AGENTS.md section 2
-    assert hh_cat["net_spend"].sum() == pytest.approx(sanity["net_sum"], rel=1e-6)
+    assert not hh_category.duplicated(["household_key", "commodity_desc"]).any()
+    assert hh_category["commodity_desc"].nunique() == N_COMMODITIES
+    assert hh_category["net_spend"].sum() == pytest.approx(sanity["net_sum"], rel=1e-6)
 
 
-# ---------------------------------------------------------------------------
-# L5 — thin hh_campaign map
-# ---------------------------------------------------------------------------
+# --- treatment map ---------------------------------------------------------
 
 
 def test_hh_campaign_map(timeline):
@@ -253,28 +261,14 @@ def test_hh_campaign_map(timeline):
     assert bool(hh_c["truncated_flag"].sum())  # campaign 24 rows carry the flag
 
 
-# ---------------------------------------------------------------------------
-# L6 — control pool + eligibility (gate #5)
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def households():
-    return read_households()
-
-
-@pytest.fixture(scope="session")
-def eligible_timeline(timeline, households):
-    return classify_campaign_eligibility(
-        compute_control_pool(load_campaign_treated(), timeline, households)
-    )
+# --- control pool and eligibility ------------------------------------------
 
 
 def test_control_pool_bounds_and_backbone(eligible_timeline):
     tl = eligible_timeline
     assert (tl["n_control_pool"] <= 2_500 - tl["n_treated"]).all()
     backbone = tl.set_index("campaign_id").loc[[8, 13, 18], "n_control_pool"]
-    assert (backbone > 1_000).all()  # verified 2026-10-24: 1359 / 1374 / 1251
+    assert (backbone > 1_000).all()  # verified: 1359 / 1374 / 1251
 
 
 def test_eligibility_flags_match_verified_structure(eligible_timeline):

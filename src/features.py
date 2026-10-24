@@ -1,15 +1,19 @@
-"""Panel & timeline builders — Phase 0-1 (docs/sprint-p1.md, step L1).
+"""Panel and campaign-timeline builders on the Dunnhumby raw CSVs.
 
-All functions are deterministic (no randomness). Inputs are raw CSVs with
-UPPER_CASE columns; outputs are processed tables in snake_case (AGENTS.md
-conventions). Metric definitions that bind all phases live in
-docs/decision-log.md (DL-001..DL-005); reference facts in AGENTS.md section 2.
+Conventions
+-----------
+- Raw CSV columns are UPPER_CASE; every returned table is snake_case.
+- Money metrics use net spend (DL-001); return rows are never dropped, only
+  flagged (DL-002). The binding metric definitions live in
+  docs/decision-log.md (DL-001..DL-005).
+- Verified reference numbers (row counts, campaign facts) are recorded in
+  AGENTS.md section 2 and locked by tests/test_panel.py. If the raw data is
+  ever replaced, re-verify there first — do not relax the tests silently.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
 
 import duckdb
 import numpy as np
@@ -23,46 +27,67 @@ CAMPAIGN_DESC_CSV = DATA_DIR / "campaign_desc.csv"
 CAMPAIGN_TABLE_CSV = DATA_DIR / "campaign_table.csv"
 PRODUCT_CSV = DATA_DIR / "product.csv"
 
-# Verified: WEEK_NO spans 1..102 (AGENTS.md section 2). The balanced panel
-# uses this fixed grid; zero-activity weeks are real information (tenure,
-# recency), not missing data.
-N_WEEKS = 102
+PathLike = str | Path
 
-# Backbone TypeA campaigns for the main DiD estimation (AGENTS.md section 2.1).
-BACKBONE_CAMPAIGNS = (8, 13, 18)
-# Campaign 15: TypeC, 161 days, overlaps 12 other campaigns, swallows ~23
-# weeks -> kept out of the main estimation (AGENTS.md section 2.1).
-EXCLUDED_FROM_MAIN_ESTIMATION = (15,)
+# DL-001: net = amount paid after loyalty, manufacturer-coupon and
+# coupon-match discounts (all three stored as negative values).
+NET_SPEND_SQL = "(SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC)"
 
-# Last DAY observed in transaction_data (AGENTS.md section 2). Campaign
-# windows ending after this day cannot be mapped to an observed week, so the
-# end week is clamped to the last observed week and truncated_flag is set.
-LAST_OBSERVED_DAY = 711
+# Verified data facts the builders rely on (AGENTS.md section 2).
+LAST_OBSERVED_DAY = 711  # last DAY present in transaction_data
+N_WEEKS = 102  # WEEK_NO spans 1..102
+N_COMMODITIES = 308  # distinct COMMODITY_DESC in product.csv
 
-PathLike = Union[str, Path]
+# Campaign roles for DiD eligibility (AGENTS.md section 2.1).
+BACKBONE_CAMPAIGNS = (8, 13, 18)  # large TypeA campaigns, main estimands
+EXCLUDED_FROM_MAIN_ESTIMATION = (15,)  # 161-day window overlapping 12 campaigns
+
+# Below this many treated households a campaign cannot stand on its own as a
+# DiD estimate (R7/R8) and is reported only as part of an aggregate.
+MIN_INDEPENDENT_DID_TREATED = 100
+# Minimum cell size that may be reported as its own estimate (R8).
+MIN_REPORTABLE_N = 30
+
+
+def _query_df(sql: str, params: list[PathLike]) -> pd.DataFrame:
+    """Parameterised single-statement DuckDB query -> pandas frame."""
+    con = duckdb.connect()
+    try:
+        return con.execute(sql, [str(p) for p in params]).df()
+    finally:
+        con.close()
+
+
+def _query_one(sql: str, params: list[PathLike]) -> dict:
+    """Single-row DuckDB query -> dict keyed by the result column names."""
+    con = duckdb.connect()
+    try:
+        cur = con.execute(sql, [str(p) for p in params])
+        row = cur.fetchone()
+        cols = [d[0] for d in cur.description]
+    finally:
+        con.close()
+    return dict(zip(cols, row))
+
+
+# ---------------------------------------------------------------------------
+# Day -> week bridge and campaign timeline
+# ---------------------------------------------------------------------------
 
 
 def read_day_week_pairs(csv_path: PathLike = TRANSACTION_CSV) -> pd.DataFrame:
-    """Distinct (week_no, day) pairs from transactions, pushed down to DuckDB.
-
-    The day->week bridge MUST be built from observed WEEK_NO, never from
-    floor((DAY-1)/7)+1 — that formula only matches ~73% of rows because
-    retailer weeks do not always have 7 days (AGENTS.md section 3, trap 3).
-    """
-    query = "SELECT WEEK_NO, DAY FROM read_csv_auto(?) GROUP BY WEEK_NO, DAY"
-    con = duckdb.connect()
-    try:
-        pairs = con.execute(query, [str(csv_path)]).df()
-    finally:
-        con.close()
-    return pairs.rename(columns={"WEEK_NO": "week_no", "DAY": "day"})
+    """Distinct (week_no, day) pairs from transactions, aggregated in DuckDB."""
+    return _query_df(
+        "SELECT WEEK_NO AS week_no, DAY AS day FROM read_csv_auto(?) GROUP BY WEEK_NO, DAY",
+        [csv_path],
+    )
 
 
 def build_day_week_bridge(pairs: pd.DataFrame) -> pd.DataFrame:
-    """Min/max observed day per week: columns week_no, min_day, max_day.
+    """Observed min/max day per week: columns week_no, min_day, max_day.
 
-    Fails fast (AssertionError) if weeks are not contiguous 1..N or if the
-    day intervals are not adjacent — both would make the bridge unusable.
+    Fails fast if weeks are not contiguous 1..N or the day intervals are not
+    adjacent — either would make the bridge unusable for mapping campaigns.
     """
     bridge = (
         pairs.groupby("week_no")["day"]
@@ -83,11 +108,8 @@ def build_day_week_bridge(pairs: pd.DataFrame) -> pd.DataFrame:
 
 
 def map_day_to_week(bridge: pd.DataFrame, day: int, clamp_to_data: bool = True) -> int:
-    """Week containing `day`, via the observed bridge.
-
-    Days beyond the last observed day clamp to the last observed week (only
-    truncated campaigns; flagged separately via truncated_flag).
-    """
+    """Week containing `day`; days beyond the observed data clamp to the last
+    observed week (only truncated campaigns reach that branch)."""
     last_day = int(bridge["max_day"].max())
     if day > last_day:
         if not clamp_to_data:
@@ -100,7 +122,7 @@ def map_day_to_week(bridge: pd.DataFrame, day: int, clamp_to_data: bool = True) 
 
 
 def load_campaign_desc(csv_path: PathLike = CAMPAIGN_DESC_CSV) -> pd.DataFrame:
-    """campaign_desc normalized: campaign_id, type, start_day, end_day."""
+    """campaign_desc normalized to campaign_id, type, start_day, end_day."""
     desc = pd.read_csv(csv_path).rename(
         columns={
             "DESCRIPTION": "type",
@@ -116,11 +138,11 @@ def load_campaign_desc(csv_path: PathLike = CAMPAIGN_DESC_CSV) -> pd.DataFrame:
 
 
 def load_campaign_treated(csv_path: PathLike = CAMPAIGN_TABLE_CSV) -> pd.DataFrame:
-    """campaign_table normalized: type, household_key, campaign_id."""
+    """campaign_table normalized to type, household_key, campaign_id."""
     treated = pd.read_csv(csv_path).rename(
-        columns={"DESCRIPTION": "type", "household_key": "household_key", "CAMPAIGN": "campaign_id"}
+        columns={"DESCRIPTION": "type", "CAMPAIGN": "campaign_id"}
     )
-    treated["type"] = treated["type"].str.removeprefix("Type")  # 'TypeA' -> 'A'
+    treated["type"] = treated["type"].str.removeprefix("Type")
     return treated
 
 
@@ -131,12 +153,13 @@ def build_campaign_timeline(
 ) -> pd.DataFrame:
     """Campaign timeline with the Phase 0-1 quality-gate columns.
 
-    - overlaps_with: comma-separated campaign ids whose [start_day, end_day]
-      interval intersects this campaign's (inclusive; symmetric by design).
-    - start_week/end_week via the observed day->week bridge; an end day beyond
-      LAST_OBSERVED_DAY clamps to the last observed week.
-    - truncated_flag: end_day > LAST_OBSERVED_DAY.
-    - n_treated: households per campaign in campaign_table.
+    - overlaps_with / n_overlaps: campaigns whose [start_day, end_day]
+      interval intersects this campaign's (inclusive; symmetric by design),
+      as a comma-separated id list plus a count.
+    - start_week/end_week via the observed day->week bridge; end days beyond
+      LAST_OBSERVED_DAY clamp to the last observed week.
+    - truncated_flag: end_day beyond the observed data.
+    - n_treated: households targeted by the campaign.
     """
     desc = campaign_desc.sort_values("campaign_id").reset_index(drop=True)
     unknown = set(campaign_table["campaign_id"]) - set(desc["campaign_id"])
@@ -168,79 +191,49 @@ def build_campaign_timeline(
     return pd.DataFrame(rows)
 
 
-def save_parquet(df: pd.DataFrame, out_path: PathLike) -> Path:
-    """Write a processed artifact (data/processed is gitignored, rule R11)."""
-    out = Path(out_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(out, index=False)
-    return out
-
-
 # ---------------------------------------------------------------------------
-# L2 — spend sanity (DL-001 / DL-002 confirmation)
+# Spend sanity
 # ---------------------------------------------------------------------------
 
 
 def spend_sanity(csv_path: PathLike = TRANSACTION_CSV) -> dict:
-    """Row-level spend sanity stats, pushed down to DuckDB.
-
-    Confirms the DL-001 definition (net = SALES_VALUE + all discounts) and the
-    DL-002 return policy inputs: counts of rows with SALES_VALUE <= 0 and
-    rows with net < 0, plus the net distribution and the promo_share
-    denominator-valid row count (DL-004).
-    """
-    query = """
+    """Row-level net-spend stats: return-row counts (DL-002 confirmation),
+    net distribution, and the promo_share denominator-valid row count."""
+    sql = f"""
         SELECT
             COUNT(*) AS n_rows,
             SUM(CASE WHEN SALES_VALUE <= 0 THEN 1 ELSE 0 END) AS n_sales_value_le0,
-            SUM(CASE WHEN SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC < 0
-                     THEN 1 ELSE 0 END) AS n_net_lt0,
+            SUM(CASE WHEN {NET_SPEND_SQL} < 0 THEN 1 ELSE 0 END) AS n_net_lt0,
             SUM(CASE WHEN SALES_VALUE > 0 THEN 1 ELSE 0 END) AS n_denominator_valid,
-            SUM(SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC) AS net_sum,
-            MIN(SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC) AS net_min,
-            MEDIAN(SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC) AS net_p50,
-            QUANTILE_CONT(SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC, 0.99) AS net_p99,
-            MAX(SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC) AS net_max
+            SUM({NET_SPEND_SQL}) AS net_sum,
+            MIN({NET_SPEND_SQL}) AS net_min,
+            MEDIAN({NET_SPEND_SQL}) AS net_p50,
+            QUANTILE_CONT({NET_SPEND_SQL}, 0.99) AS net_p99,
+            MAX({NET_SPEND_SQL}) AS net_max
         FROM read_csv_auto(?)
     """
-    con = duckdb.connect()
-    try:
-        row = con.execute(query, [str(csv_path)]).fetchone()
-    finally:
-        con.close()
-    keys = [
-        "n_rows",
-        "n_sales_value_le0",
-        "n_net_lt0",
-        "n_denominator_valid",
-        "net_sum",
-        "net_min",
-        "net_p50",
-        "net_p99",
-        "net_max",
-    ]
-    return dict(zip(keys, row))
+    return _query_one(sql, [csv_path])
 
 
 # ---------------------------------------------------------------------------
-# L3 — balanced hh_week panel (DL-001, DL-002, DL-004, DL-005)
+# Balanced household-week panel
 # ---------------------------------------------------------------------------
 
-_HH_WEEK_AGG_SQL = """
+_HH_WEEK_AGG_SQL = f"""
 SELECT
     household_key,
     WEEK_NO,
-    SUM(SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC) AS net_spend,
+    SUM({NET_SPEND_SQL}) AS net_spend,
     COUNT(DISTINCT BASKET_ID) AS n_baskets,
     COUNT(DISTINCT PRODUCT_ID) AS n_products,
     SUM(SALES_VALUE) AS sales_value_sum,
     SUM(ABS(RETAIL_DISC)) AS abs_retail_disc_sum,
     SUM(ABS(COUPON_DISC)) AS abs_coupon_disc_sum,
+    -- promo_share per DL-004: only rows with SALES_VALUE > 0 count on both
+    -- sides of the ratio.
     SUM(CASE WHEN SALES_VALUE > 0 THEN SALES_VALUE ELSE 0 END) AS promo_denominator,
     SUM(CASE WHEN SALES_VALUE > 0 THEN ABS(RETAIL_DISC) + ABS(COUPON_DISC) ELSE 0 END) AS promo_numerator,
-    SUM(CASE WHEN SALES_VALUE <= 0
-              OR (SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC) < 0
-             THEN 1 ELSE 0 END) AS n_suspect_rows
+    SUM(CASE WHEN SALES_VALUE <= 0 OR {NET_SPEND_SQL} < 0 THEN 1 ELSE 0 END) AS n_suspect_rows
 FROM read_csv_auto(?)
 GROUP BY household_key, WEEK_NO
 """
@@ -258,25 +251,19 @@ GROUP BY t.household_key, t.WEEK_NO
 
 def aggregate_hh_week(csv_path: PathLike = TRANSACTION_CSV) -> pd.DataFrame:
     """Per household-week transaction aggregates (DuckDB pushdown)."""
-    con = duckdb.connect()
-    try:
-        agg = con.execute(_HH_WEEK_AGG_SQL, [str(csv_path)]).df()
-    finally:
-        con.close()
+    agg = _query_df(_HH_WEEK_AGG_SQL, [csv_path])
     return agg.rename(columns={"WEEK_NO": "week_no"})
 
 
 def aggregate_hh_breadth(
     txn_csv: PathLike = TRANSACTION_CSV, product_csv: PathLike = PRODUCT_CSV
 ) -> pd.DataFrame:
-    """Distinct COMMODITY_DESC per household-week (inner join: unmatched
-    products never fake a category; coverage reported separately)."""
-    con = duckdb.connect()
-    try:
-        breadth = con.execute(_HH_WEEK_BREADTH_SQL, [str(txn_csv), str(product_csv)]).df()
-    finally:
-        con.close()
-    return breadth
+    """Distinct COMMODITY_DESC per household-week.
+
+    Inner join on purpose: a product missing from the master must not fake a
+    category; product_join_coverage reports how often that happens.
+    """
+    return _query_df(_HH_WEEK_BREADTH_SQL, [txn_csv, product_csv])
 
 
 def build_hh_week(
@@ -286,9 +273,8 @@ def build_hh_week(
 ) -> pd.DataFrame:
     """Balanced panel: one row per (household_key, week_no), weeks 1..n_weeks.
 
-    - net_spend per DL-001; returns stay in via net aggregation (DL-002).
-    - promo_share per DL-004: numerator/denominator only over rows with
-      SALES_VALUE > 0; weeks without such rows get NA (not 0).
+    - net_spend per DL-001; return rows stay in the aggregation (DL-002).
+    - promo_share per DL-004: NA on weeks with no valid-denominator row.
     - recency_weeks per DL-005: 0 on active weeks, NA before the household's
       first purchase.
     """
@@ -324,10 +310,10 @@ def build_hh_week(
     )
 
     panel = panel.sort_values(["household_key", "week_no"]).reset_index(drop=True)
-    # Weeks increase within a household, so a forward-fill of the active week
-    # IS the last active week; leading NaNs (before the first purchase) stay
-    # NaN -> recency NA there (DL-005). Note: pandas cummax does NOT carry
-    # values over NaN positions, so ffill is the correct primitive here.
+    # Weeks increase within a household, so forward-filling the active week
+    # yields the last active week; leading NaNs (before the first purchase)
+    # stay NaN. cummax is wrong here: it never carries values past NaN
+    # positions, so every inactive week would end up NA.
     active_week = panel["week_no"].where(panel["has_purchase"])
     last_active = active_week.groupby(panel["household_key"]).ffill()
     panel["recency_weeks"] = (panel["week_no"] - last_active).astype("Int32")
@@ -337,7 +323,7 @@ def build_hh_week(
     if panel["promo_share"].min(skipna=True) < 0:
         raise AssertionError("promo_share must never be negative (abs() on discounts)")
 
-    panel = panel[
+    return panel[
         [
             "household_key",
             "week_no",
@@ -357,62 +343,49 @@ def build_hh_week(
             "recency_weeks",
         ]
     ]
-    return panel
 
 
 def read_households(csv_path: PathLike = TRANSACTION_CSV) -> np.ndarray:
-    """All household keys observed in transactions (expect 2,500)."""
-    con = duckdb.connect()
-    try:
-        rows = con.execute(
-            "SELECT DISTINCT household_key FROM read_csv_auto(?) ORDER BY 1",
-            [str(csv_path)],
-        ).df()
-    finally:
-        con.close()
-    return rows["household_key"].to_numpy()
+    """All household keys observed in transactions."""
+    return _query_df(
+        "SELECT DISTINCT household_key FROM read_csv_auto(?) ORDER BY 1", [csv_path]
+    )["household_key"].to_numpy()
 
 
 # ---------------------------------------------------------------------------
-# L4 — hh_category (grain sekunder) + product join coverage
+# Household-category table and product-master coverage
 # ---------------------------------------------------------------------------
 
 
 def build_hh_category(
     txn_csv: PathLike = TRANSACTION_CSV, product_csv: PathLike = PRODUCT_CSV
 ) -> pd.DataFrame:
-    """Long (household_key, commodity_desc) net spend table for Phase 3/5.
-
-    Products without a master row are excluded here (a NULL would fake a
-    category); see product_join_coverage for the excluded share.
-    """
-    query = """
+    """Long (household_key, commodity_desc) net-spend table for downstream
+    phases. Products missing from the master are excluded (a NULL would fake
+    a category); product_join_coverage reports the excluded share."""
+    sql = f"""
         SELECT
             t.household_key,
             p.COMMODITY_DESC AS commodity_desc,
-            SUM(t.SALES_VALUE + t.RETAIL_DISC + t.COUPON_DISC + t.COUPON_MATCH_DISC) AS net_spend,
+            SUM({NET_SPEND_SQL}) AS net_spend,
             COUNT(DISTINCT t.WEEK_NO) AS n_weeks_active
         FROM read_csv_auto(?) t
         JOIN read_csv_auto(?) p ON t.PRODUCT_ID = p.PRODUCT_ID
         GROUP BY t.household_key, p.COMMODITY_DESC
     """
-    con = duckdb.connect()
-    try:
-        df = con.execute(query, [str(txn_csv), str(product_csv)]).df()
-    finally:
-        con.close()
-    return df.sort_values(["household_key", "net_spend"], ascending=[True, False]).reset_index(drop=True)
+    hh_cat = _query_df(sql, [txn_csv, product_csv])
+    return hh_cat.sort_values(["household_key", "net_spend"], ascending=[True, False]).reset_index(drop=True)
 
 
 def product_join_coverage(
     txn_csv: PathLike = TRANSACTION_CSV, product_csv: PathLike = PRODUCT_CSV
 ) -> dict:
-    """Row-level and product-id-level coverage of the product master join.
+    """Row-level and product-id-level coverage of the product-master join.
 
-    Reported (not asserted): if coverage < 100%, category_breadth undercounts
+    Reported, not asserted: if coverage < 100%, category_breadth undercounts
     and that limitation must be documented, not hidden.
     """
-    query = """
+    sql = """
         SELECT
             COUNT(*) AS n_txn_rows,
             COUNT(*) FILTER (WHERE p.PRODUCT_ID IS NULL) AS n_unmatched_rows,
@@ -421,27 +394,22 @@ def product_join_coverage(
         FROM read_csv_auto(?) t
         LEFT JOIN read_csv_auto(?) p ON t.PRODUCT_ID = p.PRODUCT_ID
     """
-    con = duckdb.connect()
-    try:
-        row = con.execute(query, [str(txn_csv), str(product_csv)]).fetchone()
-    finally:
-        con.close()
-    out = dict(zip(["n_txn_rows", "n_unmatched_rows", "n_distinct_products", "n_unmatched_products"], row))
+    out = _query_one(sql, [txn_csv, product_csv])
     out["row_coverage"] = 1.0 - out["n_unmatched_rows"] / out["n_txn_rows"]
     out["id_coverage"] = 1.0 - out["n_unmatched_products"] / out["n_distinct_products"]
     return out
 
 
 # ---------------------------------------------------------------------------
-# L5 — thin hh_campaign map (grain sekunder)
+# Treatment map and DiD control pools
 # ---------------------------------------------------------------------------
 
 
 def build_hh_campaign(campaign_table: pd.DataFrame, timeline: pd.DataFrame) -> pd.DataFrame:
     """(household_key, campaign_id) treatment map joined with window columns.
 
-    Control assignment / matching / IPW stay in Phase 4 (src/did.py) on
-    purpose; this table only carries treatment + window facts.
+    Control assignment, matching and IPW belong to the campaign-effect phase
+    (src/did.py); this table carries treatment and window facts only.
     """
     window_cols = [
         "campaign_id",
@@ -461,59 +429,88 @@ def build_hh_campaign(campaign_table: pd.DataFrame, timeline: pd.DataFrame) -> p
     return hh_campaign.sort_values(["household_key", "campaign_id"]).reset_index(drop=True)
 
 
-# ---------------------------------------------------------------------------
-# L6 — control pool per campaign + DiD eligibility (gate #5)
-# ---------------------------------------------------------------------------
-
-
 def compute_control_pool(
     campaign_table: pd.DataFrame, timeline: pd.DataFrame, households
 ) -> pd.DataFrame:
-    """Timeline + n_control_pool: households never targeted by this campaign
-    nor by any campaign whose window overlaps it (AGENTS.md section 2.1).
+    """Timeline plus n_control_pool: households never targeted by a campaign
+    nor by any campaign whose window overlaps it.
 
-    Using a naive control ("just not in this campaign") biases estimates
-    toward zero; that is exactly what this function prevents.
+    A naive control ("just not in this campaign") is contaminated by
+    overlapping campaigns and biases estimates toward zero.
     """
-    treated = {int(cid): set(g["household_key"]) for cid, g in campaign_table.groupby("campaign_id")}
-    all_hh = set(int(h) for h in np.asarray(households))
-    out = timeline.copy()
+    treated = {
+        int(cid): set(g["household_key"])
+        for cid, g in campaign_table.groupby("campaign_id")
+    }
+    all_hh = {int(h) for h in np.asarray(households)}
     pools = {}
-    for r in out.itertuples():
+    for r in timeline.itertuples():
         excluded = set(treated.get(int(r.campaign_id), set()))
         for other in str(r.overlaps_with).split(","):
             if other:
                 excluded |= treated.get(int(other), set())
         pools[int(r.campaign_id)] = len(all_hh - excluded)
+
+    out = timeline.copy()
     out["n_control_pool"] = out["campaign_id"].map(pools).astype("int32")
     return out
 
 
 def classify_campaign_eligibility(timeline: pd.DataFrame) -> pd.DataFrame:
-    """reliability_flag + eligibility_reason per campaign (R7: flag, never
+    """Timeline plus reliability_flag and eligibility_reason (R7: flag, never
     silently drop). Expects compute_control_pool output."""
     out = timeline.copy()
+    # Campaigns sharing an exact window with another campaign are called out
+    # in their reason string (identical windows cannot be told apart).
+    same_window: dict[int, list[int]] = {}
+    for a in out.itertuples():
+        twins = out.loc[
+            (out["campaign_id"] != a.campaign_id)
+            & (out["start_day"] == a.start_day)
+            & (out["end_day"] == a.end_day),
+            "campaign_id",
+        ].tolist()
+        if twins:
+            same_window[int(a.campaign_id)] = [int(t) for t in twins]
+
     flags: list[str] = []
     reasons: list[str] = []
     for r in out.itertuples():
         cid = int(r.campaign_id)
         if cid in EXCLUDED_FROM_MAIN_ESTIMATION:
-            flag, reason = "excluded", "window 161 hari overlap 12 campaign, menelan ±23 minggu (AGENTS.md §2.1)"
+            window_days = int(r.end_day) - int(r.start_day) + 1
+            reason = f"window {window_days} hari overlap {int(r.n_overlaps)} campaign — di luar estimasi utama"
+            flag = "excluded"
         elif r.truncated_flag:
-            flag, reason = "tidak reliable", "END_DAY 719 > akhir data 711 — window terpotong"
-        elif r.n_treated < 100:
-            reason = f"n_treated={int(r.n_treated)} < 100 — laporkan sebagai agregat (R7/R8)"
-            if cid == 21:
-                reason += "; window identik dengan 22"
+            flag, reason = (
+                "tidak reliable",
+                f"end_day {int(r.end_day)} > akhir data {LAST_OBSERVED_DAY} — window terpotong",
+            )
+        elif r.n_treated < MIN_INDEPENDENT_DID_TREATED:
+            reason = f"n_treated={int(r.n_treated)} < {MIN_INDEPENDENT_DID_TREATED} — laporkan sebagai agregat"
+            if cid in same_window:
+                reason += f"; window identik dengan {'/'.join(map(str, same_window[cid]))}"
             flag = "tidak reliable"
-        elif r.n_control_pool < 30:
-            flag, reason = "tidak reliable", f"n_control_pool={int(r.n_control_pool)} < 30 (R8)"
+        elif r.n_control_pool < MIN_REPORTABLE_N:
+            flag, reason = (
+                "tidak reliable",
+                f"n_control_pool={int(r.n_control_pool)} < {MIN_REPORTABLE_N}",
+            )
         elif cid in BACKBONE_CAMPAIGNS:
             flag, reason = "layak — utama", f"backbone TypeA, n_treated={int(r.n_treated)}"
         else:
             flag, reason = "layak", f"menengah, n_treated={int(r.n_treated)} — CI akan lebar"
         flags.append(flag)
         reasons.append(reason)
+
     out["reliability_flag"] = flags
     out["eligibility_reason"] = reasons
+    return out
+
+
+def save_parquet(df: pd.DataFrame, out_path: PathLike) -> Path:
+    """Write a processed artifact (data/processed is gitignored, rule R11)."""
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(out, index=False)
     return out
