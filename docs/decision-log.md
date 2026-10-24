@@ -11,6 +11,8 @@ Keputusan formal yang mengikat semua phase. Aturan main:
 | DL-001 | Definisi spend = `net_spend` (SALES_VALUE + seluruh diskon) | berlaku — sanity check numerik di Phase 1 | 2026-10-24 |
 | DL-002 | Retur/baris negatif: agregasi net, tidak di-drop | berlaku — kuantifikasi di Phase 1 | 2026-10-24 |
 | DL-003 | Dataset Stage 1 uplift: X5 utama + Hillstrom fallback; akses terverifikasi | berlaku | 2026-10-24 |
+| DL-004 | `promo_share` = Σ(\|RETAIL_DISC\|+\|COUPON_DISC\|) / Σ `SALES_VALUE`, hanya baris `SALES_VALUE > 0` | berlaku — sanity check di L3 sprint-p1 | 2026-10-24 |
+| DL-005 | `recency_weeks` = minggu sejak minggu aktif terakhir; `NA` pra-transaksi pertama | berlaku | 2026-10-24 |
 
 ---
 
@@ -68,3 +70,36 @@ Ketiga kolom diskon bertanda negatif di data mentah (AGENTS.md §3.1), jadi ini 
 - Semua dataset eksternal tidak pernah di-commit (R11).
 - Loader tersedia di venv: `scikit-uplift 0.5.1` (`requirements-modeling.txt`).
 - Alternatif quick-win: mulai prototipe pipeline Stage 1 dengan Hillstrom (0,4 MB) untuk memvalidasi kode, lalu jalankan penuh di X5.
+
+---
+
+## DL-004 — Definisi `promo_share` dan `gross_sales`
+
+**Keputusan.** Di panel `hh_week`, `promo_share` dihitung dari agregat baris transaksi minggu tersebut:
+
+```
+promo_share = Σ(|RETAIL_DISC| + |COUPON_DISC|) / Σ(SALES_VALUE)
+```
+
+atas baris dengan `SALES_VALUE > 0` (penyebut valid). Baris `SALES_VALUE <= 0` (terverifikasi 18.850 baris) dikecualikan secara konsisten dari pembilang **dan** penyebut; share baris yang dikecualikan wajib dilaporkan. Minggu tanpa baris berpenyebut valid → `NA` (bukan 0).
+
+**Alasan.**
+
+1. `SALES_VALUE` diperlakukan sebagai nilai pre-diskon (`gross`) — konsisten dengan DL-001 yang mendefinisikan net = `SALES_VALUE` + seluruh diskon.
+2. Pembilang mengikuti rumus spec Phase 0–1 + jebakan AGENTS.md §3.1 (diskon negatif → `abs()` wajib); `COUPON_MATCH_DISC` tidak masuk pembilang, sesuai rumus spec.
+3. Rasio dari agregat (weighted) lebih stabil daripada rata-rata rasio per baris dan tidak distorsi baris bernilai kecil.
+
+**Sanity check (wajib di L3 sprint-p1).** Distribusi `promo_share` (p50/p99) dilaporkan di notebook 01; p99 ≤ 1 diharapkan. Kalau terbukti dilanggar masif, definisi `gross_sales` diganti lewat entri baru yang men-supersede entri ini — tidak dipatch diam-diam.
+
+---
+
+## DL-005 — Definisi `recency` panel
+
+**Keputusan.** `recency_weeks = week_no − last_active_week_no` per `(household_key, week_no)`: bernilai `0` pada minggu aktif; `NA` untuk minggu sebelum transaksi pertama household (belum ada referensi). Varian hari tidak dibangun di Phase 0–1.
+
+**Alasan.**
+
+1. Unit minggu konsisten dengan grain panel dan tahan terhadap batas minggu retailer yang tidak beraturan (AGENTS.md §3.3) — menghitung dalam hari menuntut asumsi posisi hari dalam minggu.
+2. `NA` pra-transaksi-pertama menjaga household yang terlambat aktif tidak dibaca sebagai "sudah lama tidak belanja" padahal belum pernah belanja; deret nol itu sendiri menjadi fitur tenure.
+
+**Konsekuensi.** Phase 5 (churn risk) boleh menurunkan varian hari dari data mentah bila dibutuhkan, tanpa mengubah definisi ini.
