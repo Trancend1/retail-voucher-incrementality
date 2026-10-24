@@ -14,6 +14,7 @@ from src.clv import (
     fit_gamma_gamma,
     evaluate_holdout,
 )
+from src.cohorts import build_cohort_benchmarks, build_cohorts, build_whitespace
 from src.features import (
     build_campaign_timeline,
     build_day_week_bridge,
@@ -95,3 +96,22 @@ def ggf_cal(summary_cal):
 def holdout_metrics(hh_week, bgf_cal, ggf_cal, summary_cal):
     metrics, _ = evaluate_holdout(hh_week, bgf_cal, ggf_cal, summary_cal)
     return metrics
+
+
+# --- Phase 3 (penetration gap) ---
+
+
+@pytest.fixture(scope="session")
+def cohorts(hh_category):
+    cohort_df, _merge_log = build_cohorts(hh_category)
+    return cohort_df
+
+
+@pytest.fixture(scope="session")
+def cohort_benchmarks(hh_category, cohorts):
+    return build_cohort_benchmarks(hh_category, cohorts)
+
+
+@pytest.fixture(scope="session")
+def whitespace(hh_category, cohorts, cohort_benchmarks):
+    return build_whitespace(hh_category, cohorts, cohort_benchmarks)

@@ -25,7 +25,7 @@ Yang dijual proyek ini bukan angka uplift-nya, tapi **kejujuran soal kapan angka
 | Treatment campaign **tidak randomized** (retailer yang memilih target) | Semua lift/uplift dilabeli `observational — di bawah asumsi unconfoundedness`; tidak pernah ditulis "voucher menyebabkan" |
 | Margin per kategori **tidak ada di data** | Selalu tampil sebagai parameter eksplisit + sensitivitas 15/25/35%, tidak pernah satu angka hardcode |
 | Horizon CLV pendek (data ±2 tahun) | Selalu ditulis `CLV 52 minggu`, bukan "lifetime value" |
-| Hanya satu retailer | Yang dihitung adalah **category penetration gap**, berlabel `proxy dalam satu retailer`; frasa "share of wallet" tidak dipakai |
+| Hanya satu retailer | Yang dihitung adalah **category penetration gap**, berlabel `proxy dalam satu retailer` (aturan R2) |
 | Definisi spend = **net** (`SALES_VALUE` + seluruh diskon) | Satu definisi konsisten di semua phase — keputusan formal [DL-001](docs/decision-log.md) |
 | Retur/baris negatif **tidak di-drop**, masuk agregasi net | Kebijakan eksplisit [DL-002](docs/decision-log.md), jumlah baris terdampak dilaporkan di Phase 1 |
 
@@ -34,7 +34,7 @@ Yang dijual proyek ini bukan angka uplift-nya, tapi **kejujuran soal kapan angka
 - Treatment dipilih retailer, bukan acak; estimasi efek valid hanya di bawah asumsi unconfoundedness (propensity, overlap, placebo test dipakai untuk mengurangi — bukan menghapus — risiko ini).
 - `campaign_table` tidak punya tanggal kirim per household; timing treatment hanya level-campaign. Efek per household tidak bisa di-align ke tanggal terima.
 - 74 pasang campaign beririsan waktunya; campaign `15` (161 hari, menelan ±23 minggu) dikeluarkan dari estimasi utama, `21`/`22` punya window identik, `24` terpotong akhir data. Control group didefinisikan per campaign dan mengeksklusi campaign overlap.
-- Tidak ada data margin, tidak ada share of wallet total, tidak ada transaksi non-member. Tiga hal ini tidak "diakali" dengan proxy yang tidak dilabeli.
+- Tidak ada data margin, tidak ada data total belanja lintas retailer, tidak ada transaksi non-member. Tiga hal ini tidak "diakali" dengan proxy yang tidak dilabeli.
 - Demografi hanya tersedia untuk 32% household → dipakai untuk profil segmen, bukan fitur wajib.
 - Nominal USD era 2010-an; untuk slide transfer ke konteks Indonesia cukup pakai rasio unitless, sebut konversi & tahun bila memakai nominal.
 - Sampel ±2.500 household: uplift per decile berisik; CI selalu ditampilkan, sel/decile/segmen dengan n < 30 tidak diklaim.
@@ -70,6 +70,12 @@ Raw data tidak pernah di-commit (R11); turunan besar hidup di `data/processed/*.
 - Asumsi independensi Gamma-Gamma dilanggar material: korelasi frequency–monetary Spearman ρ = 0,43 (p ≈ 1,8e-112) — limitation yang menempel pada `clv_52w`.
 - CLV 52 minggu (USD, net, n=2.500): p10 = 315 | p50 = 1.050 | p90 = 3.135 | p99 = 6.364.
 
+### Hasil — Phase 3 penetration gap (terverifikasi 2026-10-25, `proxy dalam satu retailer`)
+
+- Cohort pembanding: 7 dari 9 sel grid tercile spend × tercile ragam terisi (sel spend-kecil/ragam-luas kosong secara alami; 4 member spend-besar/ragam-sempit digabung ke tetangga); n terkecil 127.
+- Whitespace: 25.000 baris (top-10 × 2.500 member, terisi penuh untuk semua member); 48,8% entrinya kategori yang belum pernah dibeli; `expected_spend` p50 $18,5 / p99 $268.
+- Top whitespace lintas member: barang belanja inti (BEEF, BEERS/ALES, SOFT DRINKS, DIAPERS) — dengan satu peringatan: **COUPON/MISC ITEMS** (kategori operator) memimpin daftar dan selayaknya dikecualikan dari rekomendasi produk.
+
 Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [`AGENTS.md`](AGENTS.md) §2–3.
 
 ## Milestone & status
@@ -78,7 +84,7 @@ Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [
 |---|---|---|
 | 0–1 | EDA + panel `hh_week` + timeline campaign | **selesai** — DoD terpenuhi (sprint-p1, 2026-10-24) |
 | 2 | RFM + BG/NBD + Gamma-Gamma + diagnostic vs baseline naif | **selesai** — DoD terpenuhi (sprint-p2, 2026-10-25); model kalah dari baseline naif, ditulis apa adanya (R9) |
-| 3 | Category penetration gap per cohort | belum mulai |
+| 3 | Category penetration gap per cohort | **selesai** — DoD terpenuhi (sprint-p3, 2026-10-25); 7 cohort, whitespace top-10 per member, label proxy |
 | 4 | Campaign DiD + event study + balance | belum mulai |
 | 5 | Segmentasi K-means + stabilitas ARI | belum mulai |
 | 6 | Uplift: Stage 1 (randomized, X5/Hillstrom) + Stage 2 (observational) | belum mulai — akses data Stage 1 [terverifikasi](docs/decision-log.md#dl-003) |
