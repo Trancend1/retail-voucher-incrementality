@@ -22,7 +22,7 @@ Analisis efektivitas voucher pada panel belanja Dunnhumby Complete Journey — 2
 | 2 | RFM + CLV 52 minggu + uji vs baseline naif | ✅ selesai — model kalah dari naif, ditulis apa adanya |
 | 3 | Penetration gap per cohort + whitespace per member | ✅ selesai — berlabel `proxy dalam satu retailer` |
 | 4 | Campaign DiD + event study + covariate balance | ✅ selesai — 14/30 lolos semua gate (dua placebo); backbone 8 & 13 signifikan BH (+9,8% / +15,2%); pooled $3,8–4,9/minggu; seleksi win-back terkondisikan |
-| 5 | Segmentasi K-means + stabilitas ARI | belum mulai |
+| 5 | Segmentasi K-means + stabilitas ARI | ✅ selesai — 3 segmen efektif (k=5 core-fit + konsolidasi); ARI 0,646; churn threshold gap p95=5 mgg dari data |
 | 6 | Uplift dua tahap (randomized + observational) | belum mulai — akses data Stage 1 terverifikasi |
 | 7 | Simulasi ROI voucher (3 skenario + sensitivitas) | belum mulai |
 | 8 | Dashboard 4 halaman + playbook + slide re-run | belum mulai |
@@ -53,6 +53,7 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 - Nominal USD era 2010-an; untuk transfer ke konteks Indonesia pakai rasio unitless.
 - 2.500 member membuat uplift per decile berisik: CI selalu tampil, sel dengan n < 30 tidak dilaporkan.
 - Efek campaign terverifikasi untuk 14 campaign; seleksi win-back membuat estimasi spesifikasi-sensitif (±30%) dan sisa bias mean-reversion tak bisa dikecualikan; campaign 18 ditandai (gagal placebo jauh meski signifikan); biaya voucher dua batas (atribusi ketat vs semua kupon), keduanya proxy.
+- Segmen bersifat deskriptif dengan struktur lembut (silhouette rendah; bukti kelayakannya stabilitas ARI 0,646, bukan ketajaman klaster); share kategori komposisional tanpa transformasi log-ratio; aksi segmen adalah kandidat uji, bukan klaim kausal.
 
 ## Hasil sejauh ini
 
@@ -61,6 +62,8 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 **Nilai member — RFM & CLV 52 minggu.** RFM kuintil terbukti baseline yang kuat. BG/NBD + Gamma-Gamma justru kalah dari rata-rata historis tiap member saat diuji pada 26 minggu holdout — MAE 322 vs 308 (95% CI selisih +8,6 s.d. +20,5) — karena belanja grocery yang hampir periodik sudah menangkap hampir semua sinyal. Konsekuensinya dipegang konsisten: `clv_52w` hanya deskriptor berlabel asumsi, dan keputusan targeting tetap berdiri di atas RFM serta historis. Asumsi independensi Gamma-Gamma juga terbukti dilanggar (ρ = 0,43) dan menempel sebagai batasan pada `clv_52w`.
 
 **Whitespace kategori — proxy satu retailer.** Membandingkan tiap member dengan cohort semirip (tercile spend × tercile ragam; 7 dari 9 sel grid terisi, n terkecil 127) menghasilkan top-10 kategori kandidat per member, terurut potensi spend; hampir separuh entrinya kategori yang belum pernah dibeli. Pola lintas member masuk akal — daging, bir, minuman, popok — dengan satu jebakan interpretasi yang ditandai: COUPON/MISC ITEMS adalah kategori operator dan selayaknya dikecualikan dari rekomendasi produk.
+
+**Segmentasi member — tiga wajah yang stabil.** K-means pada RFM (log) + ketergantungan promo + bauran 44 department, dengan pemilihan k berdasarkan stabilitas lintas seed dan lintas paruh periode (ARI 0,646) karena silhouette rendah di semua k — struktur segmen memang lembut, dan itu diakui. Tiga segmen efektif yang bertahan: **mesin pertumbuhan** (1.099 member; spend $4.386; churn 2,6%), **promo-dependent** (972; ketergantungan promo 0,23 tertinggi; churn 17%), dan **rentan hilang** (429; churn 39%; belanja terkecil) — masing-marsing dengan satu aksi dari aturan tetap (aktivasi ulang / uji benefit non-diskon / dorong whitespace). Ambang churn datang dari distribusi panel (gap > p95 = 5 minggu), bukan angka bulat; top-1% spender ekstrem dikecualikan dari fitting dan ditugaskan ke centroid terdekat (terdokumentasi).
 
 **Efek campaign voucher — observasional, dengan pelajaran identifikasi.** Investigasi mendalam menemukan bahwa targeting campaign ini bercorak **win-back**: member dipilih saat spend-nya sedang turun, lalu sebagian pemulihannya alami (mean reversion) — tanpa pengondisian, DiD membaca pemulihan itu sebagai efek campaign. Setelah trajektori dan level dip pra-campaign dikontrol, estimasi backbone turun ±30% dan reliabilitas dijaga **dua placebo** (jendela pre berdekatan + jendela jauh yang tak pernah disentuh model). Hasil akhir: 14 dari 20 campaign layak lolos semua gate; backbone yang bersih — campaign 8 (+9,8%) dan 13 (+15,2%) — signifikan setelah koreksi multiplicity BH; campaign 18 signifikan secara aritmetika tapi gagal placebo jauh dan ditandai. Efek rata-rata lintas campaign reliable **$3,83 [2,89–4,77] per minggu** (fixed-effect; random-effects $4,87, I² 66%). Ekonomi voucher dua batas: atribusi ketat memberi $3,3–$3,6 incremental spend per $1 (break-even margin 28–30%) — mendekati impas pada margin grocery tinggi; batas konservatif (semua kupon) tetap negatif.
 

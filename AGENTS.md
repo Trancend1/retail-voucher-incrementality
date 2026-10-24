@@ -99,6 +99,15 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 - Ekonomi dua batas (DL-013): ketat — 8: $3,55/$1 (break-even 28%), 13: $3,31 (30%), 18: $2,52 (40%, flagged); margin35 positif hanya untuk 8 & 13; batas konservatif negatif semua.
 - Konsekuensi: headline = 8 & 13 + pooled; semua observasional (R1); angka dibaca sebagai rentang spesifikasi.
 
+### 2.6 Hasil terverifikasi Phase 5 — segmentasi (2026-10-25, sprint-p5)
+
+- Fitur: RFM log + `promo_share_mean` + share 44 department (join langsung produk); 2.500 member, share menjumlah 1,0 persis.
+- Outlier (amendemen DL-015): top-1% spender dikecualikan dari fitting, di-assign ke centroid terdekat; klaster < 30 dikonsolidasikan. Winsorisasi p1/p99 pernah dicoba dan **ditolak** — clipping menciptakan tie di cap yang membentuk mikro-klaster artefak (29 anggota menempel di semua k).
+- k final = 5 (core-fit) → **3 segmen efektif** setelah konsolidasi; alasan: ARI lintas seed paling rapat (median 0,646, min 0,641); silhouette rendah di semua k (0,02–0,07) — struktur lembut, diungkap.
+- Segmen: 1) mesin pertumbuhan n=1.099 (total spend $4.386, promo 0,16, churn 2,6%); 2) promo-dependent n=972 (spend $1.431, promo 0,23 tertinggi, churn 17,4%); 3) rentan hilang n=429 (spend $927, churn 39,2%, dropping 19,1%).
+- Churn dari data: gap p95 = **5 minggu** (14,6% member ter-flag); rasio H2/H1 p10 = 0,419 (10,0% dropping).
+- Whitespace utama (COUPON/MISC ITEMS dikecualikan, temuan §2.4): seg1 BEEF ($441/member), seg2 BEERS/ALES, seg3 BEEF; aksi deterministik per segmen (aktivasi ulang / benefit non-diskon / dorong whitespace).
+
 ---
 
 ## 3. Jebakan data (baca sebelum menulis query pertama)
@@ -238,7 +247,7 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Status & utang terbuka
 
-**Status:** Phase 0–4 selesai dengan DoD penuh — hasil terverifikasi di §2.2–§2.5. Terakhir: campaign DiD (hanya 4/30 lolos semua gate; backbone 13 & 18 signifikan; ekonomi voucher belum impas di margin grocery — detail §2.5). 48/48 test hijau, 4 notebook ter-render, `main` sinkron dengan remote. Status resmi per phase: README (SOT status).
+**Status:** Phase 0–5 selesai dengan DoD penuh — hasil terverifikasi di §2.2–§2.6. Terakhir: segmentasi 3 segmen efektif (ARI 0,646; churn gap p95 = 5 minggu dari data). 57/57 test hijau, 5 notebook ter-render, `main` sinkron dengan remote. **Cut line MVP tercapai di sisi analisis** — tersisa dashboard halaman 1–3 + README final (Phase 8 sebagian). Status resmi per phase: README (SOT status).
 
 **Utang terbuka:** tidak ada yang memblokir. Dua catatan desain dari investigasi P4 sudah dituntaskan: balance menengah diselesaikan overlap weights (DL-012); diagnostik bootstrap membuktikan CI bobot-tetap setara refit-PS (jinak). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
 
