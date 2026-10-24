@@ -1,0 +1,39 @@
+# --- Environment ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# --- Data mentah & turunan besar (R11: jangan pernah commit) ---
+data/
+*.parquet
+*.duckdb
+*.duckdb.wal
+*.pkl
+*.joblib
+
+# --- Output besar ---
+outputs/**/*.parquet
+outputs/**/*.csv
+
+# --- OS / editor / tooling ---
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+.idea/
+.vscode/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# --- Secrets ---
+.env
+.env.*

@@ -1,0 +1,15 @@
+# Dependency modeling opsional (Phase 2 CLV + Phase 6 uplift)
+# Install di atas core: pip install -r requirements-modeling.txt
+# Catatan: pymc-marketing memasang numba/pytensor dan menahan numpy di 2.4.x.
+
+-r requirements.txt
+
+# CLV — pilih salah satu (keduanya tersedia di env ini)
+lifetimes==0.11.3
+pymc-marketing==1.3.0
+
+# Uplift
+scikit-uplift==0.5.1
+econml==0.17.0
+
+# Tidak dipasang: causalml (alternatif econml; build-nya lebih rapuh di Windows)
