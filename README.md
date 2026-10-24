@@ -56,13 +56,21 @@ Sumber: Dunnhumby *The Complete Journey*. Angka diperiksa langsung dari CSV di `
 
 Raw data tidak pernah di-commit (R11); turunan besar hidup di `data/processed/*.parquet` (juga di-gitignore).
 
+### Catatan kualitas data — Phase 0–1 (terverifikasi 2026-10-24)
+
+- **Retur (DL-002):** 18.850 baris `SALES_VALUE <= 0` dan 80.890 baris `net < 0` (±3,1%) **tidak di-drop** — masuk agregasi net; 43.478 household-minggu membawa flag `has_return`.
+- **`promo_share` (DL-004):** p99 = 0,78 ≤ 1 (sanity lolos); ekor di atas 1 ada dan dilaporkan apa adanya, tidak dipangkas.
+- **Coverage join `product.csv`: 100%** — `category_breadth` tidak undercount (14 produk master tidak pernah bertransaksi; tidak berdampak).
+- **Koreksi fakta:** hari 224 (campaign 26) jatuh di **minggu 33** menurut `WEEK_NO` aktual — catatan lama "minggu 32" berasal dari rumus naive yang salah; semua campaign mulai minggu ≥ 33.
+- **Control pool per campaign** (setelah exclude campaign overlap): backbone 8/13/18 = 1.359/1.374/1.251 household. Kelayakan DiD: 17 `layak` + 3 `layak — utama`, 9 `tidak reliable` (n_treated < 100 / window terpotong), 1 `excluded` (campaign 15).
+
 Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [`AGENTS.md`](AGENTS.md) §2–3.
 
 ## Milestone & status
 
 | Phase | Isi | Status |
 |---|---|---|
-| 0–1 | EDA + panel `hh_week` + timeline campaign | berjalan — timeline 30 campaign selesai (L1), berikutnya panel `hh_week` (L2–L9) |
+| 0–1 | EDA + panel `hh_week` + timeline campaign | **selesai** — DoD terpenuhi (sprint-p1, 2026-10-24) |
 | 2 | RFM + BG/NBD + Gamma-Gamma + diagnostic vs baseline naif | belum mulai |
 | 3 | Category penetration gap per cohort | belum mulai |
 | 4 | Campaign DiD + event study + balance | belum mulai |

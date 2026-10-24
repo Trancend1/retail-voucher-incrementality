@@ -63,6 +63,15 @@ Diperiksa langsung dari CSV di `data/` pada 2026-10-23 (pandas 3.0.3). Kalau dat
 
 Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campaign ini **dan** tidak ditarget campaign lain yang window-nya beririsan"), bukan sekadar "tidak ada di campaign_table". Kalau aturan ini dilanggar, estimasi akan bias ke arah nol.
 
+### 2.2 Hasil terverifikasi Phase 0–1 (2026-10-24, sprint-p1 L0–L9)
+
+- Panel `hh_week`: 255.000 baris (2.500 household × 102 minggu), unik; total `net_spend` = $6.608.940,89 — konsisten dengan agregat level baris (DL-001).
+- Retur terkonfirmasi (DL-002): 18.850 baris `SALES_VALUE<=0`, 80.890 baris `net<0`; 43.478 household-minggu ber-flag `has_return`.
+- `promo_share` (DL-004): p50 0,15 / p90 0,37 / p99 0,78 — sanity ≤ 1 lolos; ekor > 1 dilaporkan, tidak dipangkas.
+- Coverage join `product.csv`: **100%** baris transaksi (92.339 produk bertransaksi dari 92.353 di master).
+- Control pool per campaign (exclude overlap): 8=1.359, 13=1.374, 18=1.251; kelayakan: 17 `layak`, 3 `layak — utama`, 9 `tidak reliable`, 1 `excluded` (15).
+- Hari 224 (campaign 26) = minggu 33 via `WEEK_NO` aktual — catatan lama "minggu 32" salah (rumus naive, §3.3).
+
 ---
 
 ## 3. Jebakan data (baca sebelum menulis query pertama)
@@ -95,7 +104,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 
 ## 5. Lingkungan (fakta operasional)
 
-- Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`).
+- Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`; path kernel diperbarui 2026-10-24 setelah repo pindah direktori).
 - Versi terverifikasi di mesin ini (2026-10-23) — core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`; modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`. `causalml` **tidak** dipasang — alternatifnya `econml`.
 - Test runner: `pytest 9.1.1` (2026-10-24), config `pytest.ini`, folder `tests/` — diverifikasi jalan, masih kosong (test ditulis per phase bersama modul `src/`, lihat §7).
 - `setuptools` ditahan `<81` karena `lifetimes 0.11.3` masih impor `pkg_resources`.
@@ -194,4 +203,4 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Utang terbuka (per 2026-10-24)
 
-Kode analisis dimulai: L0–L1 Phase 0–1 selesai 2026-10-24 (`src/features.py` + 12 test hijau; timeline 30 campaign di `data/processed/campaign_timeline.parquet`). Lanjutan L2–L9 mengikuti [`docs/sprint-p1.md`](docs/sprint-p1.md). Keputusan terkait tercatat di [`docs/decision-log.md`](docs/decision-log.md).
+**Phase 0–1 selesai** (sprint-p1 L0–L9, 2026-10-24): DoD terpenuhi — panel `hh_week` 255.000 baris, timeline 30 campaign + control pool + daftar kelayakan (gate #1–#5), 23 test hijau, notebook `01_panel.ipynb` ter-render. Hasil terverifikasi dicatat di §2.2. Berikutnya: Phase 2 (CLV) — rencana eksekusi phase berikutnya mengikuti pola sprint (docs/sprint-*.md, lokal).
