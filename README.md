@@ -56,7 +56,7 @@ Sumber: Dunnhumby *The Complete Journey*. Angka diperiksa langsung dari CSV di `
 
 Raw data tidak pernah di-commit (R11); turunan besar hidup di `data/processed/*.parquet` (juga di-gitignore).
 
-Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [`AGENTS.md`](AGENTS.md) §3–4.
+Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [`AGENTS.md`](AGENTS.md) §2–3.
 
 ## Milestone & status
 
@@ -71,7 +71,7 @@ Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [
 | 7 | Simulasi ROI voucher (3 skenario + sensitivitas) | belum mulai |
 | 8 | Dashboard Power BI + playbook + slide re-run + Excel targeting | belum mulai |
 
-**Cut line MVP:** Phase 0–5 + dashboard halaman 1–3 + README. Phase 6–7 adalah lapisan pembeda, dikerjakan setelah MVP stabil. Quality gate per phase: [`AGENTS.md`](AGENTS.md) §8.
+**Cut line MVP:** Phase 0–5 + dashboard halaman 1–3 + README. Phase 6–7 adalah lapisan pembeda, dikerjakan setelah MVP stabil. Quality gate per phase: [`AGENTS.md`](AGENTS.md) §7.
 
 ## Struktur repo
 
@@ -114,7 +114,4 @@ Cek cepat: `python -m pip check` → "No broken requirements found." Reproduksi 
 
 ## Konvensi pelaporan
 
-- Angka selalu dengan konteks: `lift +4,2% (95% CI −0,8% s.d. +9,1%, n_treated=<n>, n_control=<n>)`.
-- Tiga label status dipakai konsisten: `terverifikasi (data)`, `asumsi`, `tidak reliable`.
-- Hindari "membuktikan"/"menyebabkan"/"pasti"; pakai "konsisten dengan", "diestimasi sebesar", "di bawah asumsi".
-- `reliability_flag` campaign tidak disembunyikan di tooltip; kalau tidak reliable, alasannya ditampilkan.
+Tiga label status dipakai konsisten: `terverifikasi (data)`, `asumsi`, `tidak reliable` — angka selalu dilaporkan dengan CI dan `n`, `reliability_flag` campaign tidak disembunyikan. Aturan lengkap: [`AGENTS.md`](AGENTS.md) §8.

@@ -1,4 +1,4 @@
-# Core dependency — Python 3.12.7 (lihat AGENTS.md §6)
+# Core dependency — Python 3.12.7 (lihat AGENTS.md §5)
 # Install: pip install -r requirements.txt
 # Lock lengkap (transitive): requirements.lock.txt
 

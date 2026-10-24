@@ -1,26 +1,25 @@
 # Project agent rules
 
-Panduan kerja untuk agent (dan manusia) di repo ini. Baca file ini dulu, lalu `the-complete-journey.md`.
+Aturan operasional untuk agent (dan manusia) di repo ini. File ini sengaja **tidak** memuat framing bisnis, status proyek, struktur direktori, atau perintah setup — itu milik file lain (lihat peta SOT). Urutan baca: file ini → `the-complete-journey.md`.
 
-- **Spec / sumber kebenaran requirement:** [`the-complete-journey.md`](the-complete-journey.md). Kalau isi file ini bertentangan dengan spec, **spec menang** — perbaiki file ini, jangan diam-diam menyimpang.
-- **File ini:** aturan operasional, fakta data terverifikasi, jebakan, dan definition of done.
-- **Bahasa:** dokumen dan narasi deliverable dalam Bahasa Indonesia; nama variabel, kolom, dan komentar kode dalam Inggris.
+## 0. Peta SOT (source of truth)
 
----
+| Topik | SOT | Kalau bertentangan |
+|---|---|---|
+| Requirement & desain analisis | [`the-complete-journey.md`](the-complete-journey.md) | Spec menang — perbaiki file yang menyimpang, jangan menyimpang diam-diam |
+| Framing bisnis, status phase, limitation publik, struktur repo, setup env | [`README.md`](README.md) | — |
+| Keputusan formal yang mengikat semua phase | [`docs/decision-log.md`](docs/decision-log.md) | Perubahan hanya lewat entri baru, bukan edit diam-diam |
+| Fakta data terverifikasi, jebakan, aturan kerja, quality gate | File ini | Angka yang tidak tercatat di §2 = belum terverifikasi — verifikasi dari data sebelum dipakai/dikutip |
 
-## 1. Apa proyek ini
-
-Analisis efektivitas voucher/campaign retail di panel Dunnhumby Complete Journey (±2.500 household, 102 minggu), diposisikan sebagai **methodology transfer** ke use case member loyalty ritel Indonesia.
-
-Alurnya: RFM/CLV → category penetration gap → campaign effect (DiD) → segmentasi → uplift (2 tahap) → simulasi ROI voucher.
-
-**Yang dijual proyek ini bukan angka uplift-nya, tapi kejujuran soal kapan angka itu layak dipercaya.** Setiap output harus bisa menjawab: *di bawah asumsi apa angka ini valid, dan apa buktinya?*
+Konteks singkat: analisis efektivitas voucher/campaign retail di panel Dunnhumby Complete Journey (±2.500 household, 102 minggu), methodology transfer ke use case member loyalty ritel Indonesia. Alur: RFM/CLV → category penetration gap → campaign effect (DiD) → segmentasi → uplift (2 tahap) → simulasi ROI voucher.
 
 Non-goal (jangan dikerjakan, jangan dijanjikan): klaim kausal final, prediksi churn production-grade, rekomendasi per SKU, klaim perilaku member Super Indo.
 
+Bahasa: dokumen dan narasi deliverable dalam Bahasa Indonesia; nama variabel, kolom, dan komentar kode dalam Inggris.
+
 ---
 
-## 2. Aturan keras
+## 1. Aturan keras
 
 Aturan bernomor supaya bisa dirujuk di review dan commit message.
 
@@ -41,7 +40,7 @@ Aturan bernomor supaya bisa dirujuk di review dan commit message.
 
 ---
 
-## 3. Fakta data terverifikasi
+## 2. Fakta data terverifikasi
 
 Diperiksa langsung dari CSV di `data/` pada 2026-10-23 (pandas 3.0.3). Kalau data diganti, **verifikasi ulang** — angka di bawah tidak otomatis berlaku.
 
@@ -56,7 +55,7 @@ Diperiksa langsung dari CSV di `data/` pada 2026-10-23 (pandas 3.0.3). Kalau dat
 | `product.csv` | 92.353 | 44 `DEPARTMENT`, 308 `COMMODITY_DESC`. |
 | `causal_data.csv` | 695 MB | `PRODUCT_ID × STORE_ID × WEEK_NO`, `display` + `mailer`. Opsional; jangan load penuh ke memori. |
 
-### 3.1 Skala treatment per campaign (krusial untuk Phase 4)
+### 2.1 Skala treatment per campaign (krusial untuk Phase 4)
 
 - **Layak jadi campaign utama DiD:** 8 (1.076 hh), 13 (1.077), 18 (1.133) — semuanya `TypeA`, redemption tinggi (158/196/214 hh). Ini tulang punggung analisis.
 - **Menengah (100–500 treated):** 5 (166), 7 (198), 9 (176), 10 (123), 11 (214), 12 (170), 14 (224), 16 (188), 17 (202), 19 (130), 20 (244), 22 (276), 23 (183), 25 (187), 26 (332), 29 (118), 30 (361). Layak, tapi CI per campaign akan lebar — laporkan dengan CI.
@@ -68,52 +67,24 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 
 ---
 
-## 4. Jebakan data (baca sebelum menulis query pertama)
+## 3. Jebakan data (baca sebelum menulis query pertama)
 
 1. **Diskon bernilai negatif.** `RETAIL_DISC`, `COUPON_DISC`, `COUPON_MATCH_DISC` negatif (50% baris `RETAIL_DISC` < 0). `promo_share` wajib pakai `abs()`:
    `promo_share = (|RETAIL_DISC| + |COUPON_DISC|) / gross_sales`. Tanpa `abs()`, hasilnya negatif dan tidak masuk akal.
-2. **Baris retur/adjusment.** 80.890 baris (±3,1%) punya `SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC < 0`, dan 18.850 baris `SALES_VALUE <= 0`. Tentukan kebijakan eksplisit (agregasi net, atau flag retur terpisah) dan **tulis di README**. Jangan diam-diam di-drop.
+2. **Baris retur/adjusment.** 80.890 baris (±3,1%) punya `SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC < 0`, dan 18.850 baris `SALES_VALUE <= 0`. Kebijakan eksplisit: agregasi net, tidak di-drop — [DL-002](docs/decision-log.md); kuantifikasi wajib muncul di Phase 1 dan README.
 3. **`WEEK_NO` bukan turunan `DAY`.** `floor((DAY-1)/7)+1` hanya cocok untuk ±73% baris; minggu retailer punya batas yang tidak selalu 7 hari (minggu 1 = hari 1–5, minggu 2 = hari 6–12). **Join lewat `WEEK_NO`**, jangan derive dari `DAY`.
 4. **`campaign_table` tidak punya tanggal kirim.** Hanya `(household, campaign)`. Timing treatment bersifat level-campaign, diambil dari `campaign_desc.START_DAY/END_DAY`. Ini keterbatasan nyata: efek per household tidak bisa di-align ke tanggal terima.
 5. **Redemption bukan treatment** (R10). Beberapa campaign hampir tanpa redemption sama sekali (3, 6, 15, 27: 1–2 redemption) — itu masalah ukuran sampel/channel, bukan bukti campaign gagal. Jangan menyimpulkan efektivitas dari redemption rate saja. `TypeA` (8, 13, 18) justru punya redemption 158–214 household dan paling bisa dianalisis.
 6. **Semua campaign mulai minggu ≥ 32.** Artinya pre-period panjang (±31 minggu) tapi kalau CLV holdout 26 minggu, sisa pre-window untuk campaign awal jadi tipis. Urutan pemotongan window harus diputuskan sadar, bukan otomatis.
 7. **Tidak ada data margin, tidak ada share of wallet total, tidak ada transaksi non-member.** Tiga hal ini tidak bisa "diakali" dengan proxy yang tidak dilabeli.
 8. **Nominal USD historis.** Jangan bandingkan langsung ke Rp tanpa menyebut konversi & tahun. Untuk slide transfer, cukup bilang "rasio unitless".
-9. **`SALES_VALUE` vs net.** `SALES_VALUE` tidak otomatis = uang yang dibayar. Pilih satu definisi spend (disarankan `net = SALES_VALUE + seluruh diskon`) dan pakai konsisten di semua phase; dokumentasikan di README.
+9. **`SALES_VALUE` vs net.** `SALES_VALUE` tidak otomatis = uang yang dibayar. Definisi spend sudah diputuskan formal: `net_spend` — [DL-001](docs/decision-log.md); tidak diubah setelah Phase 1.
 
 ---
 
-## 5. Struktur repo & konvensi file
+## 4. Konvensi kode & artefak
 
-Target struktur (dari spec). Per 2026-10-24: git repo aktif (branch `main`, remote GitHub), `README.md`, `docs/decision-log.md`, `pytest.ini`, `requirements-dev.txt`, dan direktori `src/`/`tests/`/`powerbi/`/`outputs/` sudah disiapkan (masih kosong, diisi per phase). Yang belum ada: notebook 01–08 dan modul `src/` — dibuat saat phase-nya dikerjakan.
-
-```
-.
-  data/                 # CSV mentah (gitignored), data/processed/*.parquet
-  notebooks/
-    01_panel.ipynb            # EDA + panel + timeline campaign
-    02_clv.ipynb              # RFM + BG/NBD + Gamma-Gamma + diagnostic
-    03_penetration_gap.ipynb  # category penetration gap (proxy), per cohort
-    04_campaign_did.ipynb     # DiD + event study + balance
-    05_segments.ipynb         # K-means + stabilitas ARI
-    06_uplift_randomized.ipynb
-    07_uplift_observational.ipynb
-    08_roi_sim.ipynb
-  src/
-    features.py       # panel builder, promo_share, RFM, breadth
-    cohorts.py        # definisi cohort & penetration gap
-    did.py            # matching/IPW, DiD, event study, SMD
-    uplift_eval.py    # Qini/AUUC, uplift curve kontinu, bootstrap CI
-    simulate.py       # skenario budget & ROI
-  tests/              # pytest — assertion kualitas data & unit src/ (ditulis per phase)
-  docs/
-    decision-log.md   # keputusan formal: DL-001 spend, DL-002 retur, DL-003 dataset Stage 1
-  powerbi/            # .pbix + export script
-  outputs/            # targeting_sample.xlsx, playbook.md, reuse_slide
-  README.md           # business framing, asumsi, limitation di atas fold
-```
-
-Konvensi:
+Struktur direktori (target dan aktual) ada di README; struktur target berasal dari spec §4. Tidak diduplikasi di sini. Konvensi yang mengikat:
 
 - **Notebook = presentasi, `src/` = logic.** Kalau sebuah fungsi dipakai di >1 notebook atau butuh test, pindahkan ke `src/`. Notebook tidak boleh menyimpan logika yang menentukan angka final.
 - Notebook bernomor sesuai urutan phase; nama file stabil karena dirujuk dari README.
@@ -124,44 +95,24 @@ Konvensi:
 
 ---
 
-## 6. Lingkungan & perintah
+## 5. Lingkungan (fakta operasional)
 
-Terverifikasi di mesin ini (2026-10-23):
-
-- Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root).
-- Core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`.
-- Modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`.
-- Test: `pytest 9.1.1` (ditambahkan 2026-10-24, diverifikasi jalan dengan `pytest.ini`; `tests/` masih kosong — test ditulis per phase).
-- `causalml` **tidak** dipasang — alternatifnya `econml` sudah ada.
+- Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`).
+- Versi terverifikasi di mesin ini (2026-10-23) — core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`; modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`. `causalml` **tidak** dipasang — alternatifnya `econml`.
+- Test runner: `pytest 9.1.1` (2026-10-24), config `pytest.ini`, folder `tests/` — diverifikasi jalan, masih kosong (test ditulis per phase bersama modul `src/`, lihat §7).
 - `setuptools` ditahan `<81` karena `lifetimes 0.11.3` masih impor `pkg_resources`.
-- Kernel Jupyter terdaftar: **Python (Dunnhumby 3.12)** (`--name dunnhumby`).
-- Git repo aktif (sejak 2026-10-24): branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`.
+- Git: branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`.
+- File requirements: `requirements.txt` (inti), `requirements-modeling.txt` (Phase 2/6), `requirements-dev.txt` (pytest), `requirements.lock.txt` (freeze persis). **Perintah setup lengkap ada di README — jangan diduplikasi di sini.** Cek sehat: `python -m pip check` → "No broken requirements found."
 
-Setup ulang dari root repo:
-
-```powershell
-py -m venv notebooks\.venv
-.\notebooks\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-pip install -r requirements-modeling.txt   # opsional: CLV Bayes + uplift
-pip install -r requirements-dev.txt        # opsional: test runner (pytest)
-python -m ipykernel install --user --name dunnhumby --display-name "Python (Dunnhumby 3.12)"
-```
-
-- `requirements.txt` = dependency inti (pin level atas). `requirements-modeling.txt` = tambahan Phase 2/6. `requirements-dev.txt` = test runner (pytest). `requirements.lock.txt` = `pip freeze` env ini untuk reproduksi persis.
-- Cek cepat: `python -m pip check` harus "No broken requirements found."
-
-Catatan:
+Jebakan lingkungan:
 
 - `causal_data.csv` 695 MB dan `transaction_data.csv` 142 MB → **pakai DuckDB** (`read_csv_auto` langsung dari CSV, agregasi pushdown) sebelum jatuh ke pandas. pandas 3 masih oke untuk 2,6 juta baris transaksi, tapi jangan untuk `causal_data` penuh.
 - pandas 3 aktif dengan copy-on-write; hindari chained assignment (`df[df.a > 0]["b"] = ...`).
 - `pymc` di Windows tidak punya `g++` → PyTensor jalan mode Python (lebih lambat). Jangan panik saat melihat warning `g++ not available`; import dan MAP fit sudah diuji jalan. Untuk MCMC panjang, pasang compiler atau turunkan volume sampling.
-- Test runner siap (`pytest` via `requirements-dev.txt`, config `pytest.ini`, folder `tests/`). Assertion kualitas data ditulis sebagai test di `tests/` + fungsi di `src/` yang juga dipanggil di awal notebook (lihat §8).
 
 ---
 
-## 7. Alur kerja agent
+## 6. Alur kerja agent
 
 1. **Baca** `AGENTS.md` + `the-complete-journey.md`. Cek `data/` lengkap (8 CSV).
 2. **Mulai dari Phase 0–1.** Jangan menulis kode uplift sebelum timeline campaign dan definisi panel selesai. Hasil Phase 1 menentukan campaign mana yang punya control cukup.
@@ -175,7 +126,7 @@ Saat menjawab user, akhiri dengan pemisahan jelas: **apa yang terverifikasi dari
 
 ---
 
-## 8. Quality gate per phase
+## 7. Quality gate per phase
 
 Definition of done minimum. Gate yang gagal = phase belum selesai, walau notebook sudah "jalan".
 
@@ -233,7 +184,7 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ---
 
-## 9. Konvensi pelaporan
+## 8. Konvensi pelaporan
 
 - Angka selalu dengan konteks: `lift +4,2% (95% CI −0,8% s.d. +9,1%, n_treated=<n>, n_control=<n>)`.
 - Tiga label status yang dipakai konsisten: `terverifikasi (data)`, `asumsi`, `tidak reliable`.
@@ -243,18 +194,6 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ---
 
-## 10. Utang teknis yang sudah diketahui
+## 9. Utang terbuka (per 2026-10-24)
 
-Diperbarui 2026-10-24 — utang kesiapan repo dituntaskan (tanpa kode analisis):
-
-- ✅ **Git repo aktif** — branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`. `.gitignore` diverifikasi menutup `data/`, `*.parquet`, `.venv/`, `.ipynb_checkpoints/` (R11).
-- ✅ **Test runner** — `pytest 9.1.1` di venv, config `pytest.ini`, folder `tests/` siap dan diverifikasi jalan. Test pertama ditulis bersama modul `src/` Phase 0–1.
-- ✅ **Definisi spend** — diputuskan formal: `net_spend = SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC` ([DL-001](docs/decision-log.md)). Sanity check numerik di Phase 1; setelah itu tidak diubah.
-- ✅ **Kebijakan retur/baris negatif** — agregasi net, tidak di-drop ([DL-002](docs/decision-log.md)); kuantifikasi baris terdampak (18.850 / 80.890 baris) dilaporkan di Phase 1.
-- ✅ **Akses data Stage 1 uplift** — X5 RetailHero + Hillstrom terverifikasi 2026-10-24 (HTTP 200 di mirror `sklift.datasets`, ukuran tercatat) ([DL-003](docs/decision-log.md)). Phase 6 Stage 1 **tidak blocked**.
-
-Tersisa (bukan blocker untuk mulai Phase 0–1):
-
-- Notebook 01–08, modul `src/`, dan isi `powerbi/` masih kosong — diisi per phase sesuai §7.
-- README masih berstatus "belum ada analisis"; setiap phase wajib memperbarui status + menambah limitation (R12).
-
+Belum ada kode analisis — notebook 01–08, modul `src/`, dan `powerbi/` diisi per phase (§6). Utang kesiapan repo lainnya sudah selesai; keputusan terkait tercatat di [`docs/decision-log.md`](docs/decision-log.md) dan fakta lingkungannya di §5.

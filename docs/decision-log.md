@@ -22,15 +22,15 @@ Keputusan formal yang mengikat semua phase. Aturan main:
 net_spend = SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC
 ```
 
-Ketiga kolom diskon bertanda negatif di data mentah (AGENTS.md §4.1), jadi ini adalah nilai bersih setelah diskon kartu loyalty, kupon manufacturer, dan matching kupon retailer.
+Ketiga kolom diskon bertanda negatif di data mentah (AGENTS.md §3.1), jadi ini adalah nilai bersih setelah diskon kartu loyalty, kupon manufacturer, dan matching kupon retailer.
 
 **Alasan.**
 
-1. Rekomendasi eksplisit AGENTS.md §4.9: `SALES_VALUE` sendiri bukan "uang yang dibayar" tanpa kebijakan diskon; pilih satu definisi dan pakai konsisten.
+1. Rekomendasi eksplisit AGENTS.md §3.9: `SALES_VALUE` sendiri bukan "uang yang dibayar" tanpa kebijakan diskon; pilih satu definisi dan pakai konsisten.
 2. `net` adalah basis yang benar untuk incremental margin di Phase 7: voucher cost (dari `COUPON_DISC` observed) dan spend outcome harus diukur pada basis yang sama.
 3. Konsisten dengan DL-002 (retur): agregasi net otomatis net-of-returns.
 
-**Konsekuensi.** Kolom dinamai `net_spend` di semua tabel processed. `promo_share` tetap dihitung dengan `abs()` pada diskon sesuai AGENTS.md §4.1.
+**Konsekuensi.** Kolom dinamai `net_spend` di semua tabel processed. `promo_share` tetap dihitung dengan `abs()` pada diskon sesuai AGENTS.md §3.1.
 
 **Validasi Phase 1 (wajib; mengonfirmasi, bukan mengubah definisi).** Laporkan di notebook 01 dan tempel hasilnya sebagai komentar di entri ini: distribusi `net_spend` (min / p50 / p99), jumlah & share baris `net_spend < 0`, dan perbandingan level agregat vs `SALES_VALUE`. Definisi hanya boleh berubah lewat entri baru + update README + catatan dampak.
 
@@ -42,7 +42,7 @@ Ketiga kolom diskon bertanda negatif di data mentah (AGENTS.md §4.1), jadi ini 
 
 **Alasan.**
 
-1. AGENTS.md §4.2 mewajibkan kebijakan eksplisit dan melarang drop diam-diam (±3,1% baris terdampak — drop mengubah level spend).
+1. AGENTS.md §3.2 mewajibkan kebijakan eksplisit dan melarang drop diam-diam (±3,1% baris terdampak — drop mengubah level spend).
 2. Konsisten dengan DL-001: net aggregation netral terhadap retur, tanpa keputusan baris-per-baris yang arbitrer.
 3. Kebijakan alternatif (flag retur terpisah) tetap bisa ditambahkan **di atas** agregasi net bila analisis butuh (mis. kolom `has_return`), tanpa mengubah kebijakan ini.
 

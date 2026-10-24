@@ -1,4 +1,4 @@
-# Dependency development (test runner) — lihat AGENTS.md §6 dan §10
+# Dependency development (test runner) — lihat AGENTS.md §5
 # Install di atas core: pip install -r requirements-dev.txt
 
 -r requirements.txt
