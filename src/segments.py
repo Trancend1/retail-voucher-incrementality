@@ -333,7 +333,6 @@ def build_segment_table(
             action = "Dorong kategori whitespace teratas (kandidat, uji coba)"
         else:
             action = "Pertahankan — offer kategori inti + upsell"
-        spend_med = float(df["monetary"].median())
         rows.append(
             {
                 "segment": int(seg),

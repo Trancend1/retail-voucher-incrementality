@@ -520,8 +520,7 @@ def build_campaign_results(
         from statsmodels.stats.multitest import multipletests
 
         p = results.loc[est_mask, "p_value"].to_numpy(float)
-        rejected, p_bh, _, _ = multipletests(p, alpha=0.05, method="fdr_bh")
-        results.loc[est_mask, "p_bh"] = p_bh
+        _, p_bh, _, _ = multipletests(p, alpha=0.05, method="fdr_bh")        results.loc[est_mask, "p_bh"] = p_bh
         results.loc[est_mask, "significance"] = np.where(
             (p_bh < 0.05) & (results.loc[est_mask, "att"].to_numpy(float) > 0),
             "signifikan positif (BH q<0,05)",
