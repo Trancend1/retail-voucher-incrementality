@@ -15,9 +15,11 @@ from src.clv import (
     evaluate_holdout,
 )
 from src.cohorts import build_cohort_benchmarks, build_cohorts, build_whitespace
+from src.did import build_campaign_results
 from src.features import (
     build_campaign_timeline,
     build_day_week_bridge,
+    build_hh_campaign,
     build_hh_category,
     build_hh_week,
     build_rfm,
@@ -114,3 +116,17 @@ def cohort_benchmarks(hh_category, cohorts):
 @pytest.fixture(scope="session")
 def whitespace(hh_category, cohorts, cohort_benchmarks):
     return build_whitespace(hh_category, cohorts, cohort_benchmarks)
+
+
+# --- Phase 4 (campaign DiD) ---
+
+
+@pytest.fixture(scope="session")
+def hh_campaign(timeline):
+    return build_hh_campaign(load_campaign_treated(), timeline)
+
+
+@pytest.fixture(scope="session")
+def did_outputs(eligible_timeline, hh_campaign, hh_week):
+    results, events = build_campaign_results(eligible_timeline, hh_campaign, hh_week)
+    return results, events
