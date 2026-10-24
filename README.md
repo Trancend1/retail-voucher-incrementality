@@ -111,6 +111,7 @@ Cek cepat: `python -m pip check` → "No broken requirements found." Reproduksi 
 - [`the-complete-journey.md`](the-complete-journey.md) — spec; sumber kebenaran requirement. Kalau dokumen lain bertentangan dengan spec, spec menang.
 - [`AGENTS.md`](AGENTS.md) — aturan kerja bernomor (R1–R12), fakta data terverifikasi, jebakan data, definition of done per phase.
 - [`docs/decision-log.md`](docs/decision-log.md) — keputusan formal yang mengikat semua phase.
+- [`docs/sprint-p1.md`](docs/sprint-p1.md) — rencana eksekusi sprint Phase 0–1 (panel & timeline): goal, urutan langkah, checkpoint, rencana commit.
 
 ## Konvensi pelaporan
 
