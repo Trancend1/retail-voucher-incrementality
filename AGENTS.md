@@ -1,8 +1,6 @@
 # Project agent rules
 
-Aturan operasional untuk agent (dan manusia) di repo ini. File ini sengaja **tidak** memuat framing bisnis, status proyek, struktur direktori, atau perintah setup — itu milik file lain (lihat peta SOT). Urutan baca: file ini → `the-complete-journey.md`.
-
-## 0. Peta SOT (source of truth)
+## Source of Truth map
 
 | Topik | SOT | Kalau bertentangan |
 |---|---|---|
