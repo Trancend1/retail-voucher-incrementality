@@ -88,15 +88,16 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 - Top whitespace global: COUPON/MISC ITEMS (n=1.233 — kategori operator, ditandai untuk dikecualikan dari rekomendasi), lalu BEEF, BEERS/ALES, SOFT DRINKS, DIAPERS & DISPOSABLES.
 - R2: frasa terlarang tidak ada di README/notebook/src — dijaki test `test_banned_phrase_absent_from_deliverables`.
 
-### 2.5 Hasil terverifikasi Phase 4 — campaign DiD (2026-10-25, sprint-p4 + investigasi perbaikan)
+### 2.5 Hasil terverifikasi Phase 4 — campaign DiD (2026-10-25, sprint-p4 + 2 ronde investigasi)
 
-- Design: `n_control` per campaign == control pool fase fondasi (20/20 cocok); redemption 8/13/18 == 158/196/214 (cocok §2.1).
-- Pembobotan utama = **overlap weights/ATO** (DL-012): balance **20/20** lolos SMD < 0,1 (maks 0,084), sampel penuh tanpa trim. ATT-IPW (DL-010) = kolom sensitivity; hanya 4/20 lolos balance dengan trim median 58% → alasan pergantian, terdokumentasi di DL-012.
-- Backbone overlap: 8 ATT $3,56 [1,54; 5,37] lift +12,9% — **signifikan tapi gagal placebo** → flag `tidak reliable — pre-trend`; 13 $6,21 [4,29; 8,19] +22,9%; 18 $5,84 [3,93; 7,67] +24,4% — keduanya lolos semua gate.
-- Lolos semua gate: **17 campaign** {5,7,9,10,12,13,16,17,18,19,20,22,23,25,26,29,30}. Gagal pre-trend: {8, 11, 14}.
-- Ekonomi dua batas (DL-013): atribusi ketat (produk daftar kupon campaign) → inc spend per $1 = 4,74 / 4,99 / 3,43 (8/13/18), break-even margin 21% / 20% / 29%; batas konservatif (semua kupon, DL-011) → 1,35 / 2,09 / 1,82, margin35 negatif. Biaya menengah didominasi kupon campaign lain (93–99% dari total semua-kupon).
-- Diagnostik CI: bootstrap bobot-tetap ≈ refit-propensity (campaign 18: [3,93; 7,67] vs [4,13; 7,67]) → limitation "CI optimis" jinak pada bobot overlap.
-- Konsekuensi: headline = campaign 13 & 18 (observasional, R1); estimand = populasi overlap, bukan ATT seluruh treated.
+- Design: `n_control` per campaign == control pool fase fondasi (20/20); redemption 8/13/18 == 158/196/214 (cocok §2.1).
+- **DL-014 (temuan kunci): seleksi win-back + mean reversion.** Propensity level-saja membuat placebo jauh (−24..−17) gagal 15/20 bertanda negatif; mengondisikan `spend_trend_pre` + `spend_dip_level` menutupnya. Gate reliabilitas = dua placebo + balance + n.
+- Backbone final (overlap weights, fitur diperluas): 8 $2,67 [0,69; 4,51] +9,8% — lolos semua gate; 13 $4,12 [2,20; 6,14] +15,2% — lolos; 18 $4,29 [2,41; 6,05] +18,1% — **gagal placebo jauh → flagged**, meski signifikan BH. Estimasi turun ±30% vs tanpa pengondisian — diungkap sebagai spesifikasi-sensitivitas.
+- Lolos semua gate: **14 campaign** {5,8,9,11,12,13,14,16,19,20,22,23,29,30}; flagged pre-trend jauh: {7,10,17,18,25,26}; balance 20/20 (SMD max 0,005 backbone).
+- Signifikansi BH q<0,05: {8,12,13,14,16,18,20,22,23} (9 campaign; 18 tetap flagged).
+- Pooled (meta, k=14): FE $3,83 [2,89; 4,77]; RE $4,87 [3,06; 6,68]; I² 66%.
+- Ekonomi dua batas (DL-013): ketat — 8: $3,55/$1 (break-even 28%), 13: $3,31 (30%), 18: $2,52 (40%, flagged); margin35 positif hanya untuk 8 & 13; batas konservatif negatif semua.
+- Konsekuensi: headline = 8 & 13 + pooled; semua observasional (R1); angka dibaca sebagai rentang spesifikasi.
 
 ---
 
