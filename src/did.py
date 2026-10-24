@@ -1,13 +1,15 @@
-"""Campaign effect: IPW-weighted difference-in-differences per campaign.
+"""Campaign effect: overlap-weighted difference-in-differences per campaign.
 
 Every estimate here is observational - treatment was assigned by the
 retailer, not randomized - and is only valid under the unconfoundedness
-assumption (R1). Design knobs are locked in docs/decision-log.md
-(DL-010, DL-011); spend figures are net (DL-001) in nominal USD.
+assumption (R1). Weighting and voucher-cost conventions are locked in
+docs/decision-log.md (DL-010..DL-013); spend figures are net (DL-001) in
+nominal USD.
 """
 
 from __future__ import annotations
 
+import duckdb
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -16,17 +18,22 @@ from sklearn.preprocessing import StandardScaler
 
 from src.features import (
     BACKBONE_CAMPAIGNS,
+    COUPON_CSV,
     DATA_DIR,
     MIN_REPORTABLE_N,
     RANDOM_STATE,
+    TRANSACTION_CSV,
 )
 
-# DL-010 knobs.
 PRE_WEEKS = 8
-PS_TRIM = (0.05, 0.95)
 N_BOOTSTRAP = 1000
 SMD_TARGET = 0.1
 ELIGIBLE_FLAGS = ("layak", "layak — utama")
+
+# DL-012: primary weighting = overlap (ATO). Bounded weights ((1-e) treated,
+# e control) need no trimming and balance by construction on the overlap
+# population. ATT-IPW with trimming (DL-010) is kept as a sensitivity view.
+PS_TRIM = (0.05, 0.95)
 
 # R3: margin is an assumption, never a single number.
 MARGIN_LEVELS = (0.15, 0.25, 0.35)
@@ -131,22 +138,35 @@ def build_campaign_design(
     )
 
 
-def fit_propensity(design: pd.DataFrame) -> pd.DataFrame:
-    """Logistic propensity + ATT weights (treated 1, control e/(1-e)).
-
-    Rows with e outside PS_TRIM are flagged ps_keep=False; the caller drops
-    them and reports the trimmed share and effective n.
-    """
+def _logistic_ps(design: pd.DataFrame) -> np.ndarray:
     X = design[PRE_FEATURES].to_numpy(dtype=float)
     y = design["treated"].to_numpy(dtype=int)
     pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
     pipe.fit(X, y)
-    e = pipe.predict_proba(X)[:, 1]
+    return pipe.predict_proba(X)[:, 1]
 
+
+def fit_propensity(design: pd.DataFrame, scheme: str = "overlap") -> pd.DataFrame:
+    """Logistic propensity plus analysis weights.
+
+    - "overlap" (DL-012, primary): treated weight (1-e), control weight e.
+      Bounded in [0,1], so no trimming; the estimand is the effect on the
+      overlap population (members near the targeting margin).
+    - "att_ipw" (DL-010, sensitivity): treated 1, control e/(1-e), with rows
+      outside PS_TRIM flagged ps_keep=False.
+    """
+    e = _logistic_ps(design)
+    y = design["treated"].to_numpy(dtype=int)
     out = design.copy()
     out["ps"] = e
-    out["ps_keep"] = (e >= PS_TRIM[0]) & (e <= PS_TRIM[1])
-    out["att_weight"] = np.where(y == 1, 1.0, e / (1.0 - e))
+    if scheme == "overlap":
+        out["ps_keep"] = True
+        out["att_weight"] = np.where(y == 1, 1.0 - e, e)
+    elif scheme == "att_ipw":
+        out["ps_keep"] = (e >= PS_TRIM[0]) & (e <= PS_TRIM[1])
+        out["att_weight"] = np.where(y == 1, 1.0, e / (1.0 - e))
+    else:
+        raise ValueError(f"unknown weighting scheme: {scheme}")
     return out
 
 
@@ -161,7 +181,12 @@ def _weighted_did(pre: np.ndarray, post: np.ndarray, treat: np.ndarray, w: np.nd
 def _bootstrap_did(
     pre: np.ndarray, post: np.ndarray, y: np.ndarray, w: np.ndarray, n_bootstrap: int, seed: int
 ) -> dict:
-    """ATT plus household-level bootstrap CI; weights held fixed."""
+    """Effect plus household-level bootstrap CI; weights held fixed.
+
+    Diagnostics show the fixed-weight CI matches a refit-propensity
+    bootstrap for overlap weights (bounded weights keep PS uncertainty
+    small); recorded in AGENTS.md section 2.5.
+    """
     att = _weighted_did(pre, post, y, w)
     t = y == 1
     pre_t = float((pre[t] * w[t]).sum() / w[t].sum())
@@ -212,7 +237,7 @@ def placebo_pre_trend(design: pd.DataFrame, n_bootstrap=N_BOOTSTRAP, seed=RANDOM
 
 
 def smd_table(design: pd.DataFrame) -> pd.DataFrame:
-    """Standardised mean differences per pre-feature, before vs after IPW."""
+    """Standardised mean differences per pre-feature, before vs after weighting."""
     y = design["treated"].to_numpy(int)
     w = design["att_weight"].to_numpy(float)
     t = y == 1
@@ -255,6 +280,34 @@ def event_study_means(timeline_row, design: pd.DataFrame, panel: pd.DataFrame) -
     return pd.DataFrame(rows)
 
 
+def campaign_item_voucher_cost(
+    timeline_row,
+    hh_campaign: pd.DataFrame,
+    txn_csv=TRANSACTION_CSV,
+    coupon_csv=COUPON_CSV,
+) -> float:
+    """Tight voucher cost (DL-013): |COUPON_DISC| on products in the
+    campaign's own coupon list, redeemed by treated households during the
+    window. Still a proxy (product-list membership, not coupon identity);
+    the all-coupons figure from the panel is the conservative upper bound."""
+    cid = int(timeline_row.campaign_id)
+    ws, we = int(timeline_row.start_week), int(timeline_row.end_week)
+    treated = set(hh_campaign.loc[hh_campaign["campaign_id"] == cid, "household_key"])
+    query = """
+        SELECT t.household_key, SUM(ABS(t.COUPON_DISC)) AS cost
+        FROM read_csv_auto(?) t
+        JOIN read_csv_auto(?) c ON t.PRODUCT_ID = c.PRODUCT_ID AND c.CAMPAIGN = ?
+        WHERE t.WEEK_NO BETWEEN ? AND ? AND t.COUPON_DISC < 0
+        GROUP BY t.household_key
+    """
+    con = duckdb.connect()
+    try:
+        hh_cost = con.execute(query, [str(txn_csv), str(coupon_csv), cid, ws, we]).df()
+    finally:
+        con.close()
+    return float(hh_cost.loc[hh_cost["household_key"].isin(treated), "cost"].sum())
+
+
 def build_campaign_results(
     timeline: pd.DataFrame,
     hh_campaign: pd.DataFrame,
@@ -264,9 +317,11 @@ def build_campaign_results(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Full DiD results for every campaign (30 rows) + event-study table.
 
-    Non-eligible campaigns keep their foundation-phase flag and get no
-    estimate; eligible ones that fail placebo / balance / effective-n get a
-    `tidak reliable` flag with the reason (R7 - flagged, never dropped).
+    Primary weighting: overlap/ATO on the full sample (DL-012); ATT-IPW
+    with trimming is computed as a sensitivity column. Non-eligible
+    campaigns keep their foundation-phase flag; eligible ones failing
+    placebo / balance / effective-n get a `tidak reliable` flag with the
+    reason (R7 - flagged, never dropped).
     """
     redempt_n = load_coupon_redempt().groupby("campaign_id")["household_key"].nunique()
     pool = np.sort(panel["household_key"].unique())
@@ -294,34 +349,45 @@ def build_campaign_results(
             rows.append(base)
             continue
 
-        design_full = build_campaign_design(r, hh_campaign, panel, pool)
-        with_ps = fit_propensity(design_full)
-        d = with_ps[with_ps["ps_keep"]].reset_index(drop=True)
+        design = fit_propensity(build_campaign_design(r, hh_campaign, panel, pool))
+        with_ipw = fit_propensity(
+            build_campaign_design(r, hh_campaign, panel, pool), scheme="att_ipw"
+        )
+        ps_outside_share = 1.0 - float(with_ipw["ps_keep"].mean())
+        d_ipw = with_ipw[with_ipw["ps_keep"]].reset_index(drop=True)
 
         seed = base_seed + cid
-        att = estimate_att_bootstrap(d, n_bootstrap, seed)
-        pla = placebo_pre_trend(d, n_bootstrap, seed + 10_000)
-        smd = smd_table(d)
+        att = estimate_att_bootstrap(design, n_bootstrap, seed)
+        pla = placebo_pre_trend(design, n_bootstrap, seed + 10_000)
+        att_ipw = estimate_att_bootstrap(d_ipw, n_bootstrap, seed)
+        smd = smd_table(design)
         smd_max_before = float(smd["smd_before"].abs().max())
         smd_max_after = float(smd["smd_after"].abs().max())
 
-        ev = event_study_means(r, d, panel)
+        ev = event_study_means(r, design, panel)
         ev.insert(0, "campaign_id", cid)
         event_frames.append(ev)
 
-        t = d["treated"] == 1
-        n_t = int(t.sum())
-        n_c = int((~t).sum())
-        voucher_cost = float(d.loc[t, "coupon_post"].sum())
+        n_t = int((design["treated"] == 1).sum())
+        n_c = int((design["treated"] == 0).sum())
+        cost_tight = campaign_item_voucher_cost(r, hh_campaign)
+        cost_all = float(design.loc[design["treated"] == 1, "coupon_post"].sum())
         inc_total = att["att"] * n_t
-        has_cost = voucher_cost > 0
-        ratio = inc_total / voucher_cost if has_cost else np.nan
-        margins = {
-            f"margin{int(m * 100)}_per_dollar": (m * inc_total - voucher_cost) / voucher_cost
-            if has_cost
-            else np.nan
-            for m in MARGIN_LEVELS
-        }
+
+        def ratios(cost: float) -> dict:
+            if cost <= 0:
+                ratio = np.nan
+                margins = {f"margin{int(m * 100)}_per_dollar": np.nan for m in MARGIN_LEVELS}
+            else:
+                ratio = inc_total / cost
+                margins = {
+                    f"margin{int(m * 100)}_per_dollar": (m * inc_total - cost) / cost
+                    for m in MARGIN_LEVELS
+                }
+            return {"ratio": ratio, **margins}
+
+        tight = ratios(cost_tight)
+        bound = ratios(cost_all)
 
         problems = []
         if not (pla["att_ci_low"] <= 0 <= pla["att_ci_high"]):
@@ -336,18 +402,21 @@ def build_campaign_results(
             flag, reason = "layak — utama (observasional)", "lolos placebo, balance, n"
         else:
             flag, reason = "layak (observasional)", "lolos placebo, balance, n"
+        significance = "signifikan positif" if att["att_ci_low"] > 0 else "tidak signifikan"
 
         n_red = int(redempt_n.get(cid, 0))
         rows.append(
             {
                 **base,
                 "estimated": True,
-                "n_analysis": int(len(d)),
+                "weight_scheme": "overlap (ATO)",
+                "n_analysis": int(len(design)),
                 "n_treated_analysis": n_t,
                 "n_control_analysis": n_c,
-                "trim_share": 1.0 - len(d) / len(design_full),
-                "ps_mean_treated": float(d.loc[t, "ps"].mean()),
-                "ps_mean_control": float(d.loc[~t, "ps"].mean()),
+                "ps_outside_trim_share": ps_outside_share,
+                "att_ipw_sensitivity": att_ipw["att"],
+                "att_ipw_ci_low_sensitivity": att_ipw["att_ci_low"],
+                "att_ipw_ci_high_sensitivity": att_ipw["att_ci_high"],
                 "smd_max_before": smd_max_before,
                 "smd_max_after": smd_max_after,
                 **att,
@@ -355,12 +424,18 @@ def build_campaign_results(
                 "placebo_ci_low": pla["att_ci_low"],
                 "placebo_ci_high": pla["att_ci_high"],
                 "pre_trend_ok": bool(pla["att_ci_low"] <= 0 <= pla["att_ci_high"]),
+                "significance": significance,
                 "n_redeemers": n_red,
                 "redemption_rate": n_red / int(r.n_treated),
-                "voucher_cost": voucher_cost,
+                "voucher_cost_campaign_items": cost_tight,
+                "voucher_cost_all_coupons": cost_all,
                 "incremental_spend_total": inc_total,
-                "inc_spend_per_dollar": ratio,
-                **margins,
+                "inc_spend_per_dollar": tight["ratio"],
+                "margin15_per_dollar": tight[f"margin15_per_dollar"],
+                "margin25_per_dollar": tight[f"margin25_per_dollar"],
+                "margin35_per_dollar": tight[f"margin35_per_dollar"],
+                "inc_spend_per_dollar_allcoupons": bound["ratio"],
+                "margin35_per_dollar_allcoupons": bound[f"margin35_per_dollar"],
                 "reliability_flag": flag,
                 "reliability_reason": reason,
             }

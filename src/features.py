@@ -26,6 +26,7 @@ TRANSACTION_CSV = DATA_DIR / "transaction_data.csv"
 CAMPAIGN_DESC_CSV = DATA_DIR / "campaign_desc.csv"
 CAMPAIGN_TABLE_CSV = DATA_DIR / "campaign_table.csv"
 PRODUCT_CSV = DATA_DIR / "product.csv"
+COUPON_CSV = DATA_DIR / "coupon.csv"
 
 PathLike = str | Path
 

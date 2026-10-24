@@ -11,20 +11,21 @@ import pytest
 
 from src.did import ELIGIBLE_FLAGS, SMD_TARGET, build_campaign_design, build_campaign_results
 
-# Verified (locked, deterministic seeds):
-BACKBONE_ATT = {8: 3.18, 13: 4.76, 18: 6.29}
-BACKBONE_ATT_CI = {8: (-0.24, 6.44), 13: (1.87, 7.76), 18: (3.32, 9.06)}
-BACKBONE_RATIO = {8: 1.312, 13: 1.884, 18: 2.160}
+# Verified (locked, deterministic seeds; overlap/ATO primary - DL-012,
+# tight voucher cost - DL-013):
+BACKBONE_ATT = {8: 3.56, 13: 6.21, 18: 5.84}
+BACKBONE_ATT_CI = {8: (1.54, 5.37), 13: (4.29, 8.19), 18: (3.93, 7.67)}
+BACKBONE_RATIO = {8: 4.736, 13: 4.993, 18: 3.433}
+BACKBONE_IPW_SENSITIVITY = {8: 3.18, 13: 4.76, 18: 6.29}
 BACKBONE_REDEEMERS = {8: 158, 13: 196, 18: 214}
-FINAL_LAYAK = {8, 13, 18, 30}
-PRETREND_FAILED = {11, 12, 14}
+FINAL_LAYAK = {5, 7, 9, 10, 12, 13, 16, 17, 18, 19, 20, 22, 23, 25, 26, 29, 30}
+PRETREND_FAILED = {8, 11, 14}
 FLAG_COUNTS = {
-    "tidak reliable — balance": 13,
+    "layak (observasional)": 15,
     "tidak reliable": 9,
-    "layak — utama (observasional)": 3,
-    "tidak reliable — pre-trend & balance": 3,
+    "tidak reliable — pre-trend": 3,
+    "layak — utama (observasional)": 2,
     "excluded": 1,
-    "layak (observasional)": 1,
 }
 
 
@@ -75,9 +76,15 @@ def test_backbone_att_and_diagnostics(did_outputs):
         assert row["att_ci_low"] == pytest.approx(lo, abs=0.05)
         assert row["att_ci_high"] == pytest.approx(hi, abs=0.05)
         assert lo <= att <= hi
-        assert row["pre_trend_ok"]  # placebo CI contains zero
-        assert row["smd_max_after"] < SMD_TARGET  # balance target met
-        assert row["trim_share"] < 0.2  # healthy overlap for the backbone
+        # ATT-IPW sensitivity stays consistent with the overlap estimate
+        assert row["att_ipw_sensitivity"] == pytest.approx(BACKBONE_IPW_SENSITIVITY[cid], abs=0.02)
+    # overlap weighting balances every eligible campaign (DL-012)
+    assert (est["smd_max_after"] < SMD_TARGET).all()
+    # backbone placebo: 13 and 18 pass; 8 fails and must be flagged (honesty
+    # guard - significance and reliability are separate concepts)
+    assert est.loc[13, "pre_trend_ok"] and est.loc[18, "pre_trend_ok"]
+    assert not est.loc[8, "pre_trend_ok"]
+    assert est.loc[8, "significance"] == "signifikan positif"
 
 
 def test_flags_and_failures(did_outputs):
@@ -100,12 +107,16 @@ def test_voucher_economics(did_outputs):
     est = _est(did_outputs)
     for cid, ratio in BACKBONE_RATIO.items():
         row = est.loc[cid]
-        assert row["voucher_cost"] > 0
+        # tight attribution (DL-013): campaign-item coupon cost, the primary
+        assert row["voucher_cost_campaign_items"] > 0
+        assert row["voucher_cost_all_coupons"] > row["voucher_cost_campaign_items"]
         assert row["inc_spend_per_dollar"] == pytest.approx(ratio, abs=0.01)
-        # Verified honest finding: at grocery-like margins (15/25/35%) the
-        # incremental margin per $1 voucher stays negative for the backbone.
         assert row["margin15_per_dollar"] < row["margin25_per_dollar"] < row["margin35_per_dollar"]
-        assert row["margin35_per_dollar"] < 0
+    # Verified pattern: at 25% margin campaigns 8 and 13 pay back, 18 only
+    # at 35%; the all-coupons bound stays negative everywhere.
+    assert est.loc[8, "margin25_per_dollar"] > 0 and est.loc[13, "margin25_per_dollar"] > 0
+    assert est.loc[18, "margin25_per_dollar"] < 0 < est.loc[18, "margin35_per_dollar"]
+    assert (est.loc[[8, 13, 18], "margin35_per_dollar_allcoupons"] < 0).all()
 
 
 def test_bootstrap_deterministic(eligible_timeline, hh_campaign, hh_week):
