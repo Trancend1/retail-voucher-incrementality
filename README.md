@@ -62,7 +62,7 @@ Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [
 
 | Phase | Isi | Status |
 |---|---|---|
-| 0–1 | EDA + panel `hh_week` + timeline campaign | belum mulai |
+| 0–1 | EDA + panel `hh_week` + timeline campaign | berjalan — timeline 30 campaign selesai (L1), berikutnya panel `hh_week` (L2–L9) |
 | 2 | RFM + BG/NBD + Gamma-Gamma + diagnostic vs baseline naif | belum mulai |
 | 3 | Category penetration gap per cohort | belum mulai |
 | 4 | Campaign DiD + event study + balance | belum mulai |

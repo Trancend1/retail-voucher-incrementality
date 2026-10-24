@@ -1,6 +1,6 @@
 # Sprint P1 — Phase 0–1: Panel & Timeline Campaign
 
-**Status:** disetujui user 2026-10-24 — siap eksekusi, **belum mulai**.
+**Status:** L0–L1 selesai 2026-10-24 (12/12 test hijau; `campaign_timeline.parquet` tersimpan) — berikutnya **L2**.
 **Lingkup:** Phase 0–1 sesuai spec §"Phase 0-1" dan quality gate AGENTS.md §7. Tidak ada model di sprint ini — murni struktur, definisi, dan kualitas data.
 **Dokumen terkait:** [spec](../the-complete-journey.md) (requirement) · [AGENTS.md](../AGENTS.md) (aturan R1–R12, fakta terverifikasi §2, jebakan §3) · [decision-log](decision-log.md) (DL-001..005).
 
@@ -64,9 +64,9 @@ L0 kunci DL ─> L1 timeline ─> L2 sanity ─> L3 hh_week ─> L4 hh_category
    ─> L5 hh_campaign ─> L6 control pool ─> L7 pytest ─> L8 notebook ─> L9 docs + commit
 ```
 
-**L0 — Kunci keputusan (docs).** Tulis DL-004 + DL-005 ke decision log. Selesai jika kedua entri masuk berstatus berlaku.
+**L0 — Kunci keputusan (docs).** Tulis DL-004 + DL-005 ke decision log. Selesai jika kedua entri masuk berstatus berlaku. *(selesai 2026-10-24)*
 
-**L1 — Jembatan hari→minggu + timeline 30 campaign** (`src/features.py` + test).
+**L1 — Jembatan hari→minggu + timeline 30 campaign** (`src/features.py` + test). *(selesai 2026-10-24 — semua checkpoint lolos; temuan: hari 224 = **minggu 33** menurut `WEEK_NO` aktual, mengoreksi catatan "minggu 32" di AGENTS.md §2/§3.6 yang berasal dari rumus naive §3.3)*
 `build_day_week_bridge()`: min/max `DAY` per `WEEK_NO`, assert 102 minggu kontinu. `build_campaign_timeline()`: kolom gate lengkap; `start/end_week` **lewat jembatan** (bukan `floor((DAY-1)/7)+1` — hanya cocok ±73% baris, AGENTS §3.3); overlap = irisan interval `START/END_DAY`; `truncated_flag` = `END_DAY > 711`.
 
 **L2 — Sanity spend** (`src/features.py` + test ringan).

@@ -45,7 +45,7 @@ Diperiksa langsung dari CSV di `data/` pada 2026-10-23 (pandas 3.0.3). Kalau dat
 | Tabel | Baris | Catatan terverifikasi |
 |---|---|---|
 | `transaction_data.csv` | 2.595.732 | 2.500 household, 276.484 basket, 582 store. `WEEK_NO` 1–102, `DAY` 1–711. |
-| `campaign_desc.csv` | 30 campaign | `START_DAY` 224–659, `END_DAY` 264–719. Durasi 32–161 hari (median 37,5). Campaign 26 mulai hari 224 (minggu 32). |
+| `campaign_desc.csv` | 30 campaign | `START_DAY` 224–659, `END_DAY` 264–719. Durasi 32–161 hari (median 37,5). Campaign 26 mulai hari 224 (**minggu 33** via jembatan DAY→WEEK, terverifikasi L1 sprint-p1 2026-10-24; catatan lama "minggu 32" berasal dari rumus naive — lihat §3.3). |
 | `campaign_table.csv` | 7.208 | 1.584 household unik, tanpa duplikat. Treated per campaign: **12–1.133**. |
 | `coupon_redempt.csv` | 2.318 | 434 household. **100%** redemption ada di dalam window campaign dan **100%** redeemers ada di `campaign_table` untuk campaign tersebut. |
 | `coupon.csv` | 124.548 | Peta `COUPON_UPC → PRODUCT_ID` per campaign. |
@@ -73,7 +73,7 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 3. **`WEEK_NO` bukan turunan `DAY`.** `floor((DAY-1)/7)+1` hanya cocok untuk ±73% baris; minggu retailer punya batas yang tidak selalu 7 hari (minggu 1 = hari 1–5, minggu 2 = hari 6–12). **Join lewat `WEEK_NO`**, jangan derive dari `DAY`.
 4. **`campaign_table` tidak punya tanggal kirim.** Hanya `(household, campaign)`. Timing treatment bersifat level-campaign, diambil dari `campaign_desc.START_DAY/END_DAY`. Ini keterbatasan nyata: efek per household tidak bisa di-align ke tanggal terima.
 5. **Redemption bukan treatment** (R10). Beberapa campaign hampir tanpa redemption sama sekali (3, 6, 15, 27: 1–2 redemption) — itu masalah ukuran sampel/channel, bukan bukti campaign gagal. Jangan menyimpulkan efektivitas dari redemption rate saja. `TypeA` (8, 13, 18) justru punya redemption 158–214 household dan paling bisa dianalisis.
-6. **Semua campaign mulai minggu ≥ 32.** Artinya pre-period panjang (±31 minggu) tapi kalau CLV holdout 26 minggu, sisa pre-window untuk campaign awal jadi tipis. Urutan pemotongan window harus diputuskan sadar, bukan otomatis.
+6. **Semua campaign mulai minggu ≥ 33** (diverifikasi via jembatan DAY→WEEK, L1 sprint-p1 2026-10-24). Artinya pre-period panjang (±32 minggu) tapi kalau CLV holdout 26 minggu, sisa pre-window untuk campaign awal jadi tipis. Urutan pemotongan window harus diputuskan sadar, bukan otomatis.
 7. **Tidak ada data margin, tidak ada share of wallet total, tidak ada transaksi non-member.** Tiga hal ini tidak bisa "diakali" dengan proxy yang tidak dilabeli.
 8. **Nominal USD historis.** Jangan bandingkan langsung ke Rp tanpa menyebut konversi & tahun. Untuk slide transfer, cukup bilang "rasio unitless".
 9. **`SALES_VALUE` vs net.** `SALES_VALUE` tidak otomatis = uang yang dibayar. Definisi spend sudah diputuskan formal: `net_spend` — [DL-001](docs/decision-log.md); tidak diubah setelah Phase 1.
@@ -194,4 +194,4 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Utang terbuka (per 2026-10-24)
 
-Belum ada kode analisis — notebook 01–08, modul `src/`, dan `powerbi/` diisi per phase (§6). Utang kesiapan repo lainnya sudah selesai; keputusan terkait tercatat di [`docs/decision-log.md`](docs/decision-log.md) dan fakta lingkungannya di §5.
+Kode analisis dimulai: L0–L1 Phase 0–1 selesai 2026-10-24 (`src/features.py` + 12 test hijau; timeline 30 campaign di `data/processed/campaign_timeline.parquet`). Lanjutan L2–L9 mengikuti [`docs/sprint-p1.md`](docs/sprint-p1.md). Keputusan terkait tercatat di [`docs/decision-log.md`](docs/decision-log.md).
