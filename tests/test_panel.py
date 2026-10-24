@@ -14,19 +14,10 @@ import pytest
 from src.features import (
     LAST_OBSERVED_DAY,
     N_COMMODITIES,
-    build_campaign_timeline,
-    build_day_week_bridge,
     build_hh_campaign,
-    build_hh_category,
-    build_hh_week,
-    classify_campaign_eligibility,
-    compute_control_pool,
     load_campaign_desc,
     load_campaign_treated,
     product_join_coverage,
-    read_day_week_pairs,
-    read_households,
-    spend_sanity,
 )
 
 EXPECTED_COLUMNS = {
@@ -42,42 +33,8 @@ EXPECTED_COLUMNS = {
     "truncated_flag",
 }
 
-
-@pytest.fixture(scope="session")
-def bridge():
-    return build_day_week_bridge(read_day_week_pairs())
-
-
-@pytest.fixture(scope="session")
-def timeline(bridge):
-    return build_campaign_timeline(load_campaign_desc(), load_campaign_treated(), bridge)
-
-
-@pytest.fixture(scope="session")
-def sanity():
-    return spend_sanity()
-
-
-@pytest.fixture(scope="session")
-def hh_week():
-    return build_hh_week()
-
-
-@pytest.fixture(scope="session")
-def hh_category():
-    return build_hh_category()
-
-
-@pytest.fixture(scope="session")
-def households():
-    return read_households()
-
-
-@pytest.fixture(scope="session")
-def eligible_timeline(timeline, households):
-    return classify_campaign_eligibility(
-        compute_control_pool(load_campaign_treated(), timeline, households)
-    )
+# Session fixtures (bridge, timeline, sanity, hh_week, hh_category,
+# households, eligible_timeline) are shared from conftest.py.
 
 
 # --- day-week bridge -------------------------------------------------------

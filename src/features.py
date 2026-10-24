@@ -48,6 +48,9 @@ MIN_INDEPENDENT_DID_TREATED = 100
 # Minimum cell size that may be reported as its own estimate (R8).
 MIN_REPORTABLE_N = 30
 
+# Single source of truth for every seeded/random operation in the repo.
+RANDOM_STATE = 42
+
 
 def _query_df(sql: str, params: list[PathLike]) -> pd.DataFrame:
     """Parameterised single-statement DuckDB query -> pandas frame."""
@@ -350,6 +353,49 @@ def read_households(csv_path: PathLike = TRANSACTION_CSV) -> np.ndarray:
     return _query_df(
         "SELECT DISTINCT household_key FROM read_csv_auto(?) ORDER BY 1", [csv_path]
     )["household_key"].to_numpy()
+
+
+# ---------------------------------------------------------------------------
+# RFM
+# ---------------------------------------------------------------------------
+
+
+def _quintile(scores: pd.Series, n: int = 5) -> pd.Series:
+    """Balanced quintiles under heavy ties (first-method ranks -> qcut).
+
+    Higher quintile always means the higher score; pass a negated series to
+    invert the direction (e.g. recency, where small is good).
+    """
+    return pd.qcut(scores.rank(method="first"), q=n, labels=False) + 1
+
+
+def build_rfm(panel: pd.DataFrame, end_week: int, n_quintiles: int = 5) -> pd.DataFrame:
+    """R/F/M aggregates and quintiles over active weeks 1..end_week.
+
+    - recency: end_week - last_active_week (small = recent; top quintile =
+      most recent, achieved by ranking -recency)
+    - frequency: number of active weeks
+    - monetary: mean net_spend per active week
+    Published RFM uses the full period; the calibration-window variant exists
+    for CLV validation only (DL-006).
+    """
+    window = panel[(panel["week_no"] <= end_week) & panel["has_purchase"]]
+    agg = (
+        window.groupby("household_key")
+        .agg(
+            first_active_week=("week_no", "min"),
+            last_active_week=("week_no", "max"),
+            frequency=("week_no", "size"),
+            total_net_spend=("net_spend", "sum"),
+        )
+        .reset_index()
+    )
+    agg["recency"] = end_week - agg["last_active_week"]
+    agg["monetary"] = agg["total_net_spend"] / agg["frequency"]
+    agg["r_quintile"] = _quintile(-agg["recency"], n_quintiles)
+    agg["f_quintile"] = _quintile(agg["frequency"], n_quintiles)
+    agg["m_quintile"] = _quintile(agg["monetary"], n_quintiles)
+    return agg
 
 
 # ---------------------------------------------------------------------------
