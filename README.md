@@ -21,7 +21,7 @@ Analisis efektivitas voucher pada panel belanja Dunnhumby Complete Journey — 2
 | 0–1 | Panel `hh_week` + timeline campaign + kelayakan DiD | ✅ selesai, 5/5 gate |
 | 2 | RFM + CLV 52 minggu + uji vs baseline naif | ✅ selesai — model kalah dari naif, ditulis apa adanya |
 | 3 | Penetration gap per cohort + whitespace per member | ✅ selesai — berlabel `proxy dalam satu retailer` |
-| 4 | Campaign DiD + event study + covariate balance | ✅ selesai — hanya 4/30 campaign lolos semua gate; 13 & 18 signifikan (+11,4% / +17,2%); semua berlabel observasional |
+| 4 | Campaign DiD + event study + covariate balance | ✅ selesai — 17/30 campaign lolos semua gate (overlap weights); 13 & 18 signifikan (+22,9% / +24,4%); ekonomi dua batas |
 | 5 | Segmentasi K-means + stabilitas ARI | belum mulai |
 | 6 | Uplift dua tahap (randomized + observational) | belum mulai — akses data Stage 1 terverifikasi |
 | 7 | Simulasi ROI voucher (3 skenario + sensitivitas) | belum mulai |
@@ -52,7 +52,7 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 - Demografi hanya tersedia untuk 32% member → dipakai untuk profil segmen, bukan fitur model.
 - Nominal USD era 2010-an; untuk transfer ke konteks Indonesia pakai rasio unitless.
 - 2.500 member membuat uplift per decile berisik: CI selalu tampil, sel dengan n < 30 tidak dilaporkan.
-- Efek campaign terverifikasi hanya untuk 4 campaign (8, 13, 18, 30); 16 campaign menengah gagal covariate balance dan 3 gagal pre-trend — flag menempel di tabel hasil, dan biaya voucher dihitung dari seluruh kupon yang diredeemasi (bukan hanya kupon campaign itu).
+- Efek campaign terverifikasi untuk 17 campaign; campaign 8 ditandai `tidak reliable` (gagal placebo meski estimasinya signifikan) dan 3 lain gagal pre-trend; biaya voucher dilaporkan dua batas (atribusi ketat vs semua kupon) dan keduanya tetap proxy.
 
 ## Hasil sejauh ini
 
@@ -62,7 +62,7 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 
 **Whitespace kategori — proxy satu retailer.** Membandingkan tiap member dengan cohort semirip (tercile spend × tercile ragam; 7 dari 9 sel grid terisi, n terkecil 127) menghasilkan top-10 kategori kandidat per member, terurut potensi spend; hampir separuh entrinya kategori yang belum pernah dibeli. Pola lintas member masuk akal — daging, bir, minuman, popok — dengan satu jebakan interpretasi yang ditandai: COUPON/MISC ITEMS adalah kategori operator dan selayaknya dikecualikan dari rekomendasi produk.
 
-**Efek campaign voucher — observasional.** DiD berbobot IPW pada 20 campaign layak, diuji tiga gate diagnostik: hanya **4 yang lolos semuanya** — backbone 13 dan 18 dengan lift spend mingguan signifikan (+11,4% [4,4–18,9] dan +17,2% [9,1–24,9]), 8 borderline (+7,7% [−0,6–15,6]), 30 kecil (+2,8%). Enam belas campaign menengah gagal covariate balance (seleksi spender berat — terbukti bukan artefak aturan trim) dan 3 gagal pre-trend; semuanya dilaporkan dengan flag, tidak dibuang. Ekonominya jujur: incremental spend per $1 voucher $1,31–$2,16 untuk backbone, namun pada margin grocery 15–35% margin incremental per $1 masih **negatif** — break-even baru tercapai di margin 46–76%.
+**Efek campaign voucher — observasional.** DiD dengan **overlap weights** (bobot terbatas, tanpa trim, estimand pada populasi overlap — member di margin targeting) pada 20 campaign layak: **17 lolos semua gate diagnostik**. Backbone 13 dan 18 menunjukkan lift spend mingguan signifikan (+22,9% [15,9–30,5] dan +24,4% [16,7–32,6]); campaign 8 signifikan secara aritmetika (+12,9%) tapi **gagal uji placebo** dan ditandai `tidak reliable`. Metode diperbaiki terbuka setelah investigasi: ATT-IPW semula hanya menyeimbangkan 4/20 campaign sambil membuang median 58% sampel (angka IPW tetap dilaporkan sebagai sensitivity). Ekonomi voucher dilaporkan dua batas: dengan atribusi ketat (produk dalam daftar kupon campaign) backbone menghasilkan $3,4–$5,0 incremental spend per $1 — break-even margin 20–29%; dengan batas konservatif (semua kupon) rasio $1,3–$2,1 dan margin negatif. Kebenarannya di antara keduanya.
 
 ## Data
 

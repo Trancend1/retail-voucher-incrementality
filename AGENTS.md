@@ -88,13 +88,15 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 - Top whitespace global: COUPON/MISC ITEMS (n=1.233 — kategori operator, ditandai untuk dikecualikan dari rekomendasi), lalu BEEF, BEERS/ALES, SOFT DRINKS, DIAPERS & DISPOSABLES.
 - R2: frasa terlarang tidak ada di README/notebook/src — dijaki test `test_banned_phrase_absent_from_deliverables`.
 
-### 2.5 Hasil terverifikasi Phase 4 — campaign DiD (2026-10-25, sprint-p4)
+### 2.5 Hasil terverifikasi Phase 4 — campaign DiD (2026-10-25, sprint-p4 + investigasi perbaikan)
 
 - Design: `n_control` per campaign == control pool fase fondasi (20/20 cocok); redemption 8/13/18 == 158/196/214 (cocok §2.1).
-- Backbone (IPW-DiD, bootstrap 1.000 by household): 8 ATT $3,18/minggu [−0,24; 6,44] lift +7,7% (borderline); 13 $4,76 [1,87; 7,76] +11,4%; 18 $6,29 [3,32; 9,06] +17,2%. SMD after 0,05–0,08 (<0,1); trim 10–13%; placebo pre-trend lolos ketiganya.
-- Lolos semua gate hanya {8, 13, 18, 30}. Gagal balance 16/20 (median SMD after 0,217) — **bukan artefak trim** (sensitivitas: trim treated-only 1/20 lolos, tanpa trim 4/20 dengan bobot ekstrem). Gagal pre-trend: {11, 12, 14}.
-- Ekonomi (DL-011, voucher cost = semua kupon): inc spend per $1 = 1,31 / 1,88 / 2,16 (8/13/18); margin incremental per $1 negatif pada 15–35% — break-even margin 76% / 53% / 46%.
-- Konsekuensi: headline efek = campaign 13 & 18; estimasi menengah hanya konteks ber-flag. Semua hasil berlabel observasional (R1) — dijaki test scan notebook.
+- Pembobotan utama = **overlap weights/ATO** (DL-012): balance **20/20** lolos SMD < 0,1 (maks 0,084), sampel penuh tanpa trim. ATT-IPW (DL-010) = kolom sensitivity; hanya 4/20 lolos balance dengan trim median 58% → alasan pergantian, terdokumentasi di DL-012.
+- Backbone overlap: 8 ATT $3,56 [1,54; 5,37] lift +12,9% — **signifikan tapi gagal placebo** → flag `tidak reliable — pre-trend`; 13 $6,21 [4,29; 8,19] +22,9%; 18 $5,84 [3,93; 7,67] +24,4% — keduanya lolos semua gate.
+- Lolos semua gate: **17 campaign** {5,7,9,10,12,13,16,17,18,19,20,22,23,25,26,29,30}. Gagal pre-trend: {8, 11, 14}.
+- Ekonomi dua batas (DL-013): atribusi ketat (produk daftar kupon campaign) → inc spend per $1 = 4,74 / 4,99 / 3,43 (8/13/18), break-even margin 21% / 20% / 29%; batas konservatif (semua kupon, DL-011) → 1,35 / 2,09 / 1,82, margin35 negatif. Biaya menengah didominasi kupon campaign lain (93–99% dari total semua-kupon).
+- Diagnostik CI: bootstrap bobot-tetap ≈ refit-propensity (campaign 18: [3,93; 7,67] vs [4,13; 7,67]) → limitation "CI optimis" jinak pada bobot overlap.
+- Konsekuensi: headline = campaign 13 & 18 (observasional, R1); estimand = populasi overlap, bukan ATT seluruh treated.
 
 ---
 
@@ -237,6 +239,6 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 **Status:** Phase 0–4 selesai dengan DoD penuh — hasil terverifikasi di §2.2–§2.5. Terakhir: campaign DiD (hanya 4/30 lolos semua gate; backbone 13 & 18 signifikan; ekonomi voucher belum impas di margin grocery — detail §2.5). 48/48 test hijau, 4 notebook ter-render, `main` sinkron dengan remote. Status resmi per phase: README (SOT status).
 
-**Utang terbuka:** tidak ada yang memblokir. Catatan desain terbuka untuk phase berikutnya: (1) balance menengah gagal 16/20 — kandidat perbaikan = balancing weights/entropy balancing atau estimasi pooled, lewat entri DL baru bila dijalankan; (2) bootstrap Phase 4 memegang bobot propensity tetap (ketidakpastian PS tidak masuk CI — sedikit optimis, dicatat sebagai limitation). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
+**Utang terbuka:** tidak ada yang memblokir. Dua catatan desain dari investigasi P4 sudah dituntaskan: balance menengah diselesaikan overlap weights (DL-012); diagnostik bootstrap membuktikan CI bobot-tetap setara refit-PS (jinak). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
 
 **Berikutnya:** Phase 5 (segmentasi K-means + stabilitas ARI) — phase terakhir sebelum cut line MVP (tinggal Phase 5 + dashboard halaman 1–3 + README).
