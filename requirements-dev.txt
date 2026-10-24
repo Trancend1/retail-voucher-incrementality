@@ -1,0 +1,6 @@
+# Dependency development (test runner) — lihat AGENTS.md §6 dan §10
+# Install di atas core: pip install -r requirements-dev.txt
+
+-r requirements.txt
+
+pytest==9.1.1
