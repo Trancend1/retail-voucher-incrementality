@@ -207,6 +207,14 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 - Grafik: sumbu diberi satuan, judul menyebut filter (campaign, window, n), tidak ada dual-axis.
 - Tabel dashboard: `reliability_flag` tidak boleh disembunyikan di tooltip; kalau campaign tidak reliable, tampilkan alasannya.
 
+### Gaya penulisan naratif (notebook & deliverable)
+
+- Notebook ditulis untuk **pembaca analisis**, bukan sebagai pelacak proyek: tanpa rujukan langkah/sprint/checkpoint/gate, tanpa frasa status progres ("selesai", "belum mulai", "menunggu persetujuan"), tanpa tanggal kecuali tanggalnya bagian dari data. Status & progres hanya hidup di README (milestone) dan `docs/sprint-*.md` (lokal).
+- Setiap bagian dibuka dengan *mengapa* — pertanyaan atau insight yang memotivasi bagian itu; definisi teknis menyusul setelahnya, bukan dibuka dengan daftar isi atau "pada bagian ini akan dibahas…".
+- Istilah teknikal penting dipertahankan apa adanya (nama kolom, `net`, `promo_share`, BG/NBD, `CLV 52 minggu`, holdout, Spearman, p99). Jargon proses internal — nomor langkah, sprint, gate, ID keputusan (DL-xxx), ID aturan (Rxx) — **tidak muncul** di narasi notebook: definisinya ditulis langsung; rujukan ke decision log cukup satu kali di bagian pembuka.
+- Buang kalimat statis/pengisi ("seperti telah disebutkan", "selanjutnya kita akan") dan angka yang cepat basi (mis. jumlah test saat ini) — setiap kalimat harus membawa informasi: angka, asumsi, atau konsekuensi.
+- Temuan kunci boleh dicetak tebal; angka tetap tunduk pada aturan konteks di atas (CI, n, satuan).
+
 ---
 
 ## 9. Utang terbuka (per 2026-10-24)
