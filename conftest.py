@@ -31,6 +31,7 @@ from src.features import (
     read_households,
     spend_sanity,
 )
+import src.segments as segments_lib
 
 
 @pytest.fixture(scope="session")
@@ -130,3 +131,34 @@ def hh_campaign(timeline):
 def did_outputs(eligible_timeline, hh_campaign, hh_week):
     results, events = build_campaign_results(eligible_timeline, hh_campaign, hh_week)
     return results, events
+
+
+# --- Phase 5 (segmentation) ---
+
+
+@pytest.fixture(scope="session")
+def seg_full(hh_week):
+    raw, departments = segments_lib.build_segment_features(hh_week, *segments_lib.FULL_WEEKS)
+    return raw, departments
+
+
+@pytest.fixture(scope="session")
+def seg_periods(hh_week, seg_full):
+    _, departments = seg_full
+    p1, _ = segments_lib.build_segment_features(hh_week, *segments_lib.P1_WEEKS, departments=departments)
+    p2, _ = segments_lib.build_segment_features(hh_week, *segments_lib.P2_WEEKS, departments=departments)
+    return p1, p2
+
+
+@pytest.fixture(scope="session")
+def segments(seg_full):
+    raw, departments = seg_full
+    segs, _model, _scaler = segments_lib.fit_segments(raw, departments)
+    return segs
+
+
+@pytest.fixture(scope="session")
+def segment_table(hh_week, seg_full, segments, whitespace):
+    thresholds = segments_lib.churn_thresholds(hh_week)
+    churn = segments_lib.churn_flags(hh_week, thresholds)
+    return segments_lib.build_segment_table(segments, churn, whitespace, thresholds)
