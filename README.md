@@ -1,138 +1,105 @@
 # Retail Voucher Incrementality — Dari RFM ke Voucher Efficiency
 
-**Hook:** *"RFM bilang siapa yang belanja banyak. Uplift bilang siapa yang berubah karena voucher. Dan saya tunjukkan kapan angka uplift itu layak dipercaya."*
+> *"RFM bilang siapa yang belanja banyak. Uplift bilang siapa yang berubah karena voucher. Dan saya tunjukkan kapan angka uplift itu layak dipercaya."*
 
-Analisis efektivitas voucher/campaign retail di panel **Dunnhumby Complete Journey** (±2.500 household, 102 minggu), diposisikan sebagai **methodology transfer** ke use case member loyalty ritel Indonesia (ala My Super Indo) — bukan klaim tentang perilaku pelanggan Super Indo.
-
-Yang dijual proyek ini bukan angka uplift-nya, tapi **kejujuran soal kapan angka itu layak dipercaya**. Setiap output harus bisa menjawab: *di bawah asumsi apa angka ini valid, dan apa buktinya?*
-
-> **Status (per 2026-10-24): kesiapan repo selesai, analisis belum mulai.** Belum ada angka di repo ini yang berasal dari model. Semua angka faktual di bawah adalah statistik data mentah yang diverifikasi langsung dari CSV pada 2026-10-23.
+Analisis efektivitas voucher pada panel belanja Dunnhumby Complete Journey — 2.500 member, 102 minggu, 2,6 juta baris transaksi — diposisikan sebagai **methodology transfer** ke program member loyalty ritel Indonesia, bukan klaim tentang perilaku pelanggannya. Yang dijual proyek ini bukan angka uplift-nya, melainkan kejujuran soal kapan angka itu layak dipercaya: setiap output menyertakan asumsi yang membuatnya valid dan bukti seberapa kuat asumsi itu bertahan pada data.
 
 ## Pertanyaan bisnis
 
 1. Siapa member bernilai tinggi, dan siapa yang mulai turun?
 2. Seberapa promo-dependent tiap segmen?
 3. Campaign mana yang beneran menaikkan spend, dan berapa incremental margin per $1 voucher?
-4. Household mana yang paling responsif, dan berapa efisiensi budget kalau voucher hanya ke top decile?
+4. Member mana yang paling responsif, dan berapa efisiensi budget jika voucher hanya ke top decile?
 5. Kategori mana yang jadi whitespace per segmen?
 
-**Non-goal:** klaim kausal final, prediksi churn production-grade, rekomendasi per SKU, klaim perilaku member Super Indo.
+**Bukan tujuan proyek:** klaim kausal final, prediksi churn production-grade, rekomendasi per SKU, atau klaim perilaku member Super Indo.
 
-## Asumsi utama (berlaku untuk semua angka yang akan dihasilkan)
-
-| Asumsi | Konsekuensi pada pelaporan |
-|---|---|
-| Treatment campaign **tidak randomized** (retailer yang memilih target) | Semua lift/uplift dilabeli `observational — di bawah asumsi unconfoundedness`; tidak pernah ditulis "voucher menyebabkan" |
-| Margin per kategori **tidak ada di data** | Selalu tampil sebagai parameter eksplisit + sensitivitas 15/25/35%, tidak pernah satu angka hardcode |
-| Horizon CLV pendek (data ±2 tahun) | Selalu ditulis `CLV 52 minggu`, bukan "lifetime value" |
-| Hanya satu retailer | Yang dihitung adalah **category penetration gap**, berlabel `proxy dalam satu retailer` (aturan R2) |
-| Definisi spend = **net** (`SALES_VALUE` + seluruh diskon) | Satu definisi konsisten di semua phase — keputusan formal [DL-001](docs/decision-log.md) |
-| Retur/baris negatif **tidak di-drop**, masuk agregasi net | Kebijakan eksplisit [DL-002](docs/decision-log.md), jumlah baris terdampak dilaporkan di Phase 1 |
-
-## Limitation (belum terselesaikan — akan tetap berada di sini)
-
-- Treatment dipilih retailer, bukan acak; estimasi efek valid hanya di bawah asumsi unconfoundedness (propensity, overlap, placebo test dipakai untuk mengurangi — bukan menghapus — risiko ini).
-- `campaign_table` tidak punya tanggal kirim per household; timing treatment hanya level-campaign. Efek per household tidak bisa di-align ke tanggal terima.
-- 74 pasang campaign beririsan waktunya; campaign `15` (161 hari, menelan ±23 minggu) dikeluarkan dari estimasi utama, `21`/`22` punya window identik, `24` terpotong akhir data. Control group didefinisikan per campaign dan mengeksklusi campaign overlap.
-- Tidak ada data margin, tidak ada data total belanja lintas retailer, tidak ada transaksi non-member. Tiga hal ini tidak "diakali" dengan proxy yang tidak dilabeli.
-- Demografi hanya tersedia untuk 32% household → dipakai untuk profil segmen, bukan fitur wajib.
-- Nominal USD era 2010-an; untuk slide transfer ke konteks Indonesia cukup pakai rasio unitless, sebut konversi & tahun bila memakai nominal.
-- Sampel ±2.500 household: uplift per decile berisik; CI selalu ditampilkan, sel/decile/segmen dengan n < 30 tidak diklaim.
-
-## Data (fakta terverifikasi 2026-10-23)
-
-Sumber: Dunnhumby *The Complete Journey*. Angka diperiksa langsung dari CSV di `data/` — kalau data diganti, verifikasi ulang.
-
-| Tabel | Baris | Catatan kunci |
-|---|---|---|
-| `transaction_data.csv` | 2.595.732 | 2.500 household, 276.484 basket, `WEEK_NO` 1–102, `DAY` 1–711 |
-| `campaign_desc.csv` | 30 campaign | `START_DAY` 224–659; tipe A/B/C |
-| `campaign_table.csv` | 7.208 | 1.584 household unik; treated per campaign 12–1.133 |
-| `coupon_redempt.csv` | 2.318 | 434 household; 100% redemption di dalam window campaign |
-| `coupon.csv` | 124.548 | Peta `COUPON_UPC → PRODUCT_ID` per campaign |
-| `hh_demographic.csv` | 801 | Hanya 32% household |
-| `product.csv` | 92.353 | 44 department, 308 commodity |
-| `causal_data.csv` | 695 MB | Display/mailer; opsional, diproses via DuckDB |
-
-Raw data tidak pernah di-commit (R11); turunan besar hidup di `data/processed/*.parquet` (juga di-gitignore).
-
-### Catatan kualitas data — Phase 0–1 (terverifikasi 2026-10-24)
-
-- **Retur (DL-002):** 18.850 baris `SALES_VALUE <= 0` dan 80.890 baris `net < 0` (±3,1%) **tidak di-drop** — masuk agregasi net; 43.478 household-minggu membawa flag `has_return`.
-- **`promo_share` (DL-004):** p99 = 0,78 ≤ 1 (sanity lolos); ekor di atas 1 ada dan dilaporkan apa adanya, tidak dipangkas.
-- **Coverage join `product.csv`: 100%** — `category_breadth` tidak undercount (14 produk master tidak pernah bertransaksi; tidak berdampak).
-- **Koreksi fakta:** hari 224 (campaign 26) jatuh di **minggu 33** menurut `WEEK_NO` aktual — catatan lama "minggu 32" berasal dari rumus naive yang salah; semua campaign mulai minggu ≥ 33.
-- **Control pool per campaign** (setelah exclude campaign overlap): backbone 8/13/18 = 1.359/1.374/1.251 household. Kelayakan DiD: 17 `layak` + 3 `layak — utama`, 9 `tidak reliable` (n_treated < 100 / window terpotong), 1 `excluded` (campaign 15).
-
-### Hasil model — Phase 2 CLV (terverifikasi 2026-10-25)
-
-- **R9 — ditulis apa adanya:** BG/NBD + Gamma-Gamma **kalah** dari baseline naif (rata-rata historis per household) pada holdout 26 minggu — MAE 322,2 vs 307,6 (95% CI selisih +8,6 s.d. +20,5; p_model_worse = 1,0), RMSE 488,5 vs 476,3, Spearman prediksi–aktual 0,773 vs 0,780. Konsisten dengan pola belanja grocery yang periodik. Konsekuensi: `clv_52w` (artefak `hh_clv.parquet`) hanya dipakai sebagai deskriptor berlabel asumsi; RFM kuintil dan baseline historis tetap acuan untuk targeting.
-- Asumsi independensi Gamma-Gamma dilanggar material: korelasi frequency–monetary Spearman ρ = 0,43 (p ≈ 1,8e-112) — limitation yang menempel pada `clv_52w`.
-- CLV 52 minggu (USD, net, n=2.500): p10 = 315 | p50 = 1.050 | p90 = 3.135 | p99 = 6.364.
-
-### Hasil — Phase 3 penetration gap (terverifikasi 2026-10-25, `proxy dalam satu retailer`)
-
-- Cohort pembanding: 7 dari 9 sel grid tercile spend × tercile ragam terisi (sel spend-kecil/ragam-luas kosong secara alami; 4 member spend-besar/ragam-sempit digabung ke tetangga); n terkecil 127.
-- Whitespace: 25.000 baris (top-10 × 2.500 member, terisi penuh untuk semua member); 48,8% entrinya kategori yang belum pernah dibeli; `expected_spend` p50 $18,5 / p99 $268.
-- Top whitespace lintas member: barang belanja inti (BEEF, BEERS/ALES, SOFT DRINKS, DIAPERS) — dengan satu peringatan: **COUPON/MISC ITEMS** (kategori operator) memimpin daftar dan selayaknya dikecualikan dari rekomendasi produk.
-
-Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [`AGENTS.md`](AGENTS.md) §2–3.
-
-## Milestone & status
+## Status
 
 | Phase | Isi | Status |
 |---|---|---|
-| 0–1 | EDA + panel `hh_week` + timeline campaign | **selesai** — DoD terpenuhi (sprint-p1, 2026-10-24) |
-| 2 | RFM + BG/NBD + Gamma-Gamma + diagnostic vs baseline naif | **selesai** — DoD terpenuhi (sprint-p2, 2026-10-25); model kalah dari baseline naif, ditulis apa adanya (R9) |
-| 3 | Category penetration gap per cohort | **selesai** — DoD terpenuhi (sprint-p3, 2026-10-25); 7 cohort, whitespace top-10 per member, label proxy |
-| 4 | Campaign DiD + event study + balance | belum mulai |
+| 0–1 | Panel `hh_week` + timeline campaign + kelayakan DiD | ✅ selesai, 5/5 gate |
+| 2 | RFM + CLV 52 minggu + uji vs baseline naif | ✅ selesai — model kalah dari naif, ditulis apa adanya |
+| 3 | Penetration gap per cohort + whitespace per member | ✅ selesai — berlabel `proxy dalam satu retailer` |
+| 4 | Campaign DiD + event study + covariate balance | belum mulai |
 | 5 | Segmentasi K-means + stabilitas ARI | belum mulai |
-| 6 | Uplift: Stage 1 (randomized, X5/Hillstrom) + Stage 2 (observational) | belum mulai — akses data Stage 1 [terverifikasi](docs/decision-log.md#dl-003) |
+| 6 | Uplift dua tahap (randomized + observational) | belum mulai — akses data Stage 1 terverifikasi |
 | 7 | Simulasi ROI voucher (3 skenario + sensitivitas) | belum mulai |
-| 8 | Dashboard Power BI + playbook + slide re-run + Excel targeting | belum mulai |
+| 8 | Dashboard 4 halaman + playbook + slide re-run | belum mulai |
 
-**Cut line MVP:** Phase 0–5 + dashboard halaman 1–3 + README. Phase 6–7 adalah lapisan pembeda, dikerjakan setelah MVP stabil. Quality gate per phase: [`AGENTS.md`](AGENTS.md) §7.
+**Cut line MVP:** Phase 4–5 + dashboard halaman 1–3 + README; Phase 6–7 adalah lapisan pembeda setelah MVP stabil.
+
+## Asumsi utama
+
+Setiap angka di proyek ini lahir di bawah asumsi berikut, dan labelnya menempel ke mana pun angka itu dibawa.
+
+| Asumi | Konsekuensi |
+|---|---|
+| Treatment campaign dipilih retailer, bukan diacak | Semua lift/uplift berlabel `observational — di bawah asumsi unconfoundedness`; tidak pernah ditulis "voucher menyebabkan" |
+| Margin per kategori tidak ada di data | Selalu parameter eksplisit + sensitivitas 15/25/35%, tidak pernah satu angka tunggal |
+| Horizon data ±2 tahun | Selalu `CLV 52 minggu`, tidak pernah "lifetime value" |
+| Hanya satu retailer | Yang dihitung penetration gap — `proxy dalam satu retailer`; total dompet lintas retailer tidak diklaim |
+| Spend = net (`SALES_VALUE` + seluruh diskon) | Satu definisi untuk semua fase ([decision log](docs/decision-log.md)) |
+| Retur tidak dibuang | Masuk agregasi net apa adanya; minggu terdampak ber-flag `has_return` |
+
+## Limitation
+
+Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
+
+- Treatment tidak acak: estimasi efek hanya valid di bawah asumsi unconfoundedness — propensity, overlap, dan placebo test mengurangi risikonya, bukan menghapus.
+- Tidak ada tanggal kirim per member (timing hanya level-campaign), tidak ada data margin, tidak ada transaksi non-member. Tiga hal ini tidak "diakali" dengan proxy tak berlabel.
+- 74 pasang campaign beririsan waktunya: campaign 15 (161 hari) dikecualikan dari estimasi utama, 21/22 berwindow identik, 24 terpotong akhir data — control group tiap campaign dihitung mengecualikan campaign yang beririsan.
+- Demografi hanya tersedia untuk 32% member → dipakai untuk profil segmen, bukan fitur model.
+- Nominal USD era 2010-an; untuk transfer ke konteks Indonesia pakai rasio unitless.
+- 2.500 member membuat uplift per decile berisik: CI selalu tampil, sel dengan n < 30 tidak dilaporkan.
+
+## Hasil sejauh ini
+
+**Fondasi — panel & kelayakan campaign.** Panel 255.000 baris (2.500 member × 102 minggu) dibangun dengan menghindari jebakan yang paling sering menggagalkan analisis panel ritel: minggu retailer yang tidak seragam (minggu 1 hanya 5 hari, sehingga hari 224 jatuh di minggu 33 — bukan 32 hasil rumus naive), diskon yang tersimpan sebagai nilai negatif, dan 3,1% baris retur yang tetap masuk agregasi alih-alih dibuang diam-diam. Dari 30 campaign, 20 layak dianalisis efeknya — 3 backbone TypeA (1.076–1.133 treated, control pool 1.251–1.374) dan 17 menengah dengan CI lebar; 9 ditandai `tidak reliable` (terlalu kecil/terpotong), 1 dikecualikan.
+
+**Nilai member — RFM & CLV 52 minggu.** RFM kuintil terbukti baseline yang kuat. BG/NBD + Gamma-Gamma justru kalah dari rata-rata historis tiap member saat diuji pada 26 minggu holdout — MAE 322 vs 308 (95% CI selisih +8,6 s.d. +20,5) — karena belanja grocery yang hampir periodik sudah menangkap hampir semua sinyal. Konsekuensinya dipegang konsisten: `clv_52w` hanya deskriptor berlabel asumsi, dan keputusan targeting tetap berdiri di atas RFM serta historis. Asumsi independensi Gamma-Gamma juga terbukti dilanggar (ρ = 0,43) dan menempel sebagai batasan pada `clv_52w`.
+
+**Whitespace kategori — proxy satu retailer.** Membandingkan tiap member dengan cohort semirip (tercile spend × tercile ragam; 7 dari 9 sel grid terisi, n terkecil 127) menghasilkan top-10 kategori kandidat per member, terurut potensi spend; hampir separuh entrinya kategori yang belum pernah dibeli. Pola lintas member masuk akal — daging, bir, minuman, popok — dengan satu jebakan interpretasi yang ditandai: COUPON/MISC ITEMS adalah kategori operator dan selayaknya dikecualikan dari rekomendasi produk.
+
+## Data
+
+Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai 40 test di `tests/`; registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai 7 parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort).
 
 ## Struktur repo
 
 ```
 .
-  data/                 # CSV mentah (gitignored) + data/processed/*.parquet (gitignored)
-  docs/
-    decision-log.md     # keputusan formal: DL-001 spend, DL-002 retur, DL-003 dataset Stage 1
-  notebooks/            # 01_panel ... 08_roi_sim (dibuat per phase) + .venv (gitignored)
-  src/                  # logic yang dipakai notebook (dibuat per phase)
-  tests/                # pytest — assertion kualitas data & unit src/ (ditulis per phase)
-  powerbi/              # .pbix + export script (Phase 8)
-  outputs/              # targeting_sample.xlsx, playbook.md, reuse_slide
-  the-complete-journey.md   # SPEC — sumber kebenaran requirement
-  AGENTS.md             # aturan operasional, fakta data terverifikasi, jebakan, quality gate
-  requirements*.txt     # inti / modeling / dev (pytest) / lock
+  data/               # CSV mentah (gitignored) + data/processed/*.parquet (gitignored)
+  docs/               # decision log + rencana sprint (lokal, di-gitignore)
+  notebooks/          # 01_panel, 02_clv, 03_penetration_gap — ter-render; logika di src/
+  src/                # features.py, clv.py, cohorts.py (did.py, uplift_eval.py, simulate.py menyusul)
+  tests/              # assertion kualitas data & invariant hasil
+  conftest.py         # session fixtures dari data asli (dibangun sekali per run)
+  powerbi/ outputs/   # Phase 8
 ```
 
 ## Setup
 
-Python 3.12.7, venv di `notebooks/.venv` (bukan root). Dari root repo (PowerShell):
+Python 3.12, venv di `notebooks/.venv` (bukan root), dijalankan dari root repo (PowerShell):
 
 ```powershell
 py -m venv notebooks\.venv
 .\notebooks\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-pip install -r requirements-modeling.txt   # opsional: CLV Bayes + uplift
-pip install -r requirements-dev.txt        # opsional: pytest
+pip install -r requirements-modeling.txt   # CLV Bayes + uplift
+pip install -r requirements-dev.txt        # pytest
 python -m ipykernel install --user --name dunnhumby --display-name "Python (Dunnhumby 3.12)"
 ```
 
-Cek cepat: `python -m pip check` → "No broken requirements found." Reproduksi persis: `requirements.lock.txt`.
-
-## Dokumen terkait
-
-- [`the-complete-journey.md`](the-complete-journey.md) — spec; sumber kebenaran requirement. Kalau dokumen lain bertentangan dengan spec, spec menang.
-- [`AGENTS.md`](AGENTS.md) — aturan kerja bernomor (R1–R12), fakta data terverifikasi, jebakan data, definition of done per phase.
-- [`docs/decision-log.md`](docs/decision-log.md) — keputusan formal yang mengikat semua phase.
-- [`docs/sprint-p1.md`](docs/sprint-p1.md) — rencana eksekusi sprint Phase 0–1 (panel & timeline): goal, urutan langkah, checkpoint, rencana commit.
+Cek sehat: `python -m pip check` → "No broken requirements found." Reproduksi persis: `requirements.lock.txt`. Test: `python -m pytest`.
 
 ## Konvensi pelaporan
 
-Tiga label status dipakai konsisten: `terverifikasi (data)`, `asumsi`, `tidak reliable` — angka selalu dilaporkan dengan CI dan `n`, `reliability_flag` campaign tidak disembunyikan. Aturan lengkap: [`AGENTS.md`](AGENTS.md) §8.
+Tiga label dipakai konsisten — `terverifikasi (data)`, `asumsi`, `tidak reliable` — dan angka selalu dengan konteks: `lift +4,2% (95% CI −0,8% s.d. +9,1%, n_treated=…, n_control=…)`. Aturan lengkap soal bahasa klaim, grafik, dan `reliability_flag`: [AGENTS.md](AGENTS.md) §8.
+
+## Dokumen terkait
+
+- [the-complete-journey.md](the-complete-journey.md) — spec; sumber kebenaran requirement.
+- [AGENTS.md](AGENTS.md) — aturan kerja, fakta terverifikasi, jebakan data, quality gate per phase.
+- [docs/decision-log.md](docs/decision-log.md) — keputusan formal yang mengikat semua fase.
