@@ -11,22 +11,24 @@ import pytest
 
 from src.did import ELIGIBLE_FLAGS, SMD_TARGET, build_campaign_design, build_campaign_results
 
-# Verified (locked, deterministic seeds; overlap/ATO primary - DL-012,
-# tight voucher cost - DL-013):
-BACKBONE_ATT = {8: 3.56, 13: 6.21, 18: 5.84}
-BACKBONE_ATT_CI = {8: (1.54, 5.37), 13: (4.29, 8.19), 18: (3.93, 7.67)}
-BACKBONE_RATIO = {8: 4.736, 13: 4.993, 18: 3.433}
-BACKBONE_IPW_SENSITIVITY = {8: 3.18, 13: 4.76, 18: 6.29}
+# Verified (locked, deterministic seeds; DL-012 overlap weights, DL-013 tight
+# voucher cost, DL-014 extended propensity + two-placebo gate):
+BACKBONE_ATT = {8: 2.67, 13: 4.12, 18: 4.29}
+BACKBONE_ATT_CI = {8: (0.69, 4.51), 13: (2.20, 6.14), 18: (2.41, 6.05)}
+BACKBONE_RATIO = {8: 3.549, 13: 3.309, 18: 2.522}
+BACKBONE_IPW_SENSITIVITY = {8: 3.58, 13: 3.70, 18: 5.86}
 BACKBONE_REDEEMERS = {8: 158, 13: 196, 18: 214}
-FINAL_LAYAK = {5, 7, 9, 10, 12, 13, 16, 17, 18, 19, 20, 22, 23, 25, 26, 29, 30}
-PRETREND_FAILED = {8, 11, 14}
+FINAL_LAYAK = {5, 8, 9, 11, 12, 13, 14, 16, 19, 20, 22, 23, 29, 30}
+FAR_PRETREND_FAILED = {7, 10, 17, 18, 25, 26}
 FLAG_COUNTS = {
-    "layak (observasional)": 15,
+    "layak (observasional)": 12,
     "tidak reliable": 9,
-    "tidak reliable — pre-trend": 3,
+    "tidak reliable — pre-trend jauh": 6,
     "layak — utama (observasional)": 2,
     "excluded": 1,
 }
+POOLED_FE = (3.83, 2.89, 4.77)
+POOLED_RE = (4.87, 3.06, 6.68)
 
 
 def _est(did_outputs):
@@ -76,22 +78,24 @@ def test_backbone_att_and_diagnostics(did_outputs):
         assert row["att_ci_low"] == pytest.approx(lo, abs=0.05)
         assert row["att_ci_high"] == pytest.approx(hi, abs=0.05)
         assert lo <= att <= hi
-        # ATT-IPW sensitivity stays consistent with the overlap estimate
+        # ATT-IPW sensitivity (same features, different weighting) agrees
         assert row["att_ipw_sensitivity"] == pytest.approx(BACKBONE_IPW_SENSITIVITY[cid], abs=0.02)
     # overlap weighting balances every eligible campaign (DL-012)
     assert (est["smd_max_after"] < SMD_TARGET).all()
-    # backbone placebo: 13 and 18 pass; 8 fails and must be flagged (honesty
-    # guard - significance and reliability are separate concepts)
-    assert est.loc[13, "pre_trend_ok"] and est.loc[18, "pre_trend_ok"]
-    assert not est.loc[8, "pre_trend_ok"]
-    assert est.loc[8, "significance"] == "signifikan positif"
+    # two-placebo gate (DL-014): campaign 8 now passes both; campaign 18 is
+    # the honesty guard - BH-significant estimate but far-window placebo
+    # failure keeps it flagged (significance is not identification)
+    assert est.loc[8, "pre_trend_ok"] and est.loc[8, "far_pre_trend_ok"]
+    assert not est.loc[18, "far_pre_trend_ok"]
+    assert est.loc[18, "significance"] == "signifikan positif (BH q<0,05)"
 
 
 def test_flags_and_failures(did_outputs):
     results, _ = did_outputs
     layak = set(results.loc[results["reliability_flag"].str.startswith("layak"), "campaign_id"])
     assert layak == FINAL_LAYAK
-    assert set(_est(did_outputs).loc[lambda d: ~d["pre_trend_ok"]].index) == PRETREND_FAILED
+    assert set(_est(did_outputs).loc[lambda d: ~d["far_pre_trend_ok"]].index) == FAR_PRETREND_FAILED
+    assert _est(did_outputs)["pre_trend_ok"].all()  # in-window placebo passes everywhere
     assert results["reliability_flag"].value_counts().to_dict() == FLAG_COUNTS
 
 
@@ -112,11 +116,35 @@ def test_voucher_economics(did_outputs):
         assert row["voucher_cost_all_coupons"] > row["voucher_cost_campaign_items"]
         assert row["inc_spend_per_dollar"] == pytest.approx(ratio, abs=0.01)
         assert row["margin15_per_dollar"] < row["margin25_per_dollar"] < row["margin35_per_dollar"]
-    # Verified pattern: at 25% margin campaigns 8 and 13 pay back, 18 only
-    # at 35%; the all-coupons bound stays negative everywhere.
-    assert est.loc[8, "margin25_per_dollar"] > 0 and est.loc[13, "margin25_per_dollar"] > 0
-    assert est.loc[18, "margin25_per_dollar"] < 0 < est.loc[18, "margin35_per_dollar"]
+    # Verified pattern (DL-014 estimates): campaigns 8 and 13 break even only
+    # at 35% margin; 18 (far-window flagged) stays negative even there; the
+    # all-coupons bound is negative everywhere.
+    assert est.loc[8, "margin25_per_dollar"] < 0 < est.loc[8, "margin35_per_dollar"]
+    assert est.loc[13, "margin25_per_dollar"] < 0 < est.loc[13, "margin35_per_dollar"]
+    assert est.loc[18, "margin35_per_dollar"] < 0
     assert (est.loc[[8, 13, 18], "margin35_per_dollar_allcoupons"] < 0).all()
+
+
+def test_pooled_effect_meta_analysis(did_outputs):
+    from src.did import pooled_effect
+
+    pe = pooled_effect(did_outputs[0])
+    assert pe["k"] == 14
+    assert pe["att_fe"] == pytest.approx(POOLED_FE[0], abs=0.05)
+    assert (pe["att_fe_ci_low"], pe["att_fe_ci_high"]) == pytest.approx(POOLED_FE[1:], abs=0.1)
+    assert pe["att_re"] == pytest.approx(POOLED_RE[0], abs=0.05)
+    assert pe["att_re"] > pe["att_fe"]  # heterogeneity tilts the average up
+    assert pe["i_squared"] == pytest.approx(0.66, abs=0.02)  # substantial heterogeneity
+
+
+def test_multiplicity_bh(did_outputs):
+    est = _est(did_outputs)
+    # Benjamini-Hochberg never leaves p_bh below the raw p-value
+    assert (est["p_bh"] >= est["p_value"] - 1e-12).all()
+    assert (est["p_bh"] <= 1.0).all()
+    assert set(est.loc[est["significance"].str.startswith("signifikan")].index) == {
+        8, 12, 13, 14, 16, 18, 20, 22, 23,
+    }
 
 
 def test_bootstrap_deterministic(eligible_timeline, hh_campaign, hh_week):

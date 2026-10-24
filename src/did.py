@@ -38,14 +38,23 @@ PS_TRIM = (0.05, 0.95)
 # R3: margin is an assumption, never a single number.
 MARGIN_LEVELS = (0.15, 0.25, 0.35)
 
-# Propensity features, pre-window only (R5).
+# Propensity features, pre-treatment only (R5). The two DL-014 features
+# exist because targeting shows win-back selection: households picked on a
+# spend dip that naturally recovers (mean reversion). Conditioning on the
+# dip level and the recovery trend removes that confound; the far-window
+# placebo (weeks -24..-17, never used in fitting) validates it.
 PRE_FEATURES = [
     "spend_weekly_pre",
     "active_weeks_pre",
     "promo_share_mean_pre",
     "breadth_mean_pre",
     "recency_pre_end",
+    "spend_trend_pre",  # momentum: late-minus-early half of weeks -8..-1
+    "spend_dip_level",  # weekly mean of weeks -12..-9 (the dip level)
 ]
+
+# Far-window placebo contrast: weeks -24..-21 vs -20..-17 (DL-014 gate).
+FAR_WINDOW = ((-24, -21), (-20, -17))
 
 
 def load_coupon_redempt(csv_path=DATA_DIR / "coupon_redempt.csv") -> pd.DataFrame:
@@ -127,6 +136,9 @@ def build_campaign_design(
             "spend_weekly_pre_early": weekly_mean(pre_lo, mid - 1),
             "spend_weekly_pre_late": weekly_mean(mid, pre_hi),
             "spend_weekly_post": weekly_mean(start, end),
+            "spend_dip_level": weekly_mean(start - 12, start - 9),
+            "spend_weekly_far_early": weekly_mean(start + FAR_WINDOW[0][0], start + FAR_WINDOW[0][1]),
+            "spend_weekly_far_late": weekly_mean(start + FAR_WINDOW[1][0], start + FAR_WINDOW[1][1]),
             "active_weeks_pre": pre_agg["active_weeks"].fillna(0).to_numpy(),
             "promo_share_mean_pre": pre_agg["promo_share_mean"].fillna(0).to_numpy(),
             "breadth_mean_pre": pre_agg["breadth_mean"].fillna(0).to_numpy(),
@@ -135,7 +147,7 @@ def build_campaign_design(
             "recency_pre_end": rec.fillna(PRE_WEEKS).astype(float).to_numpy(),
             "coupon_post": coupon_post,
         }
-    )
+    ).assign(spend_trend_pre=lambda d: d["spend_weekly_pre_late"] - d["spend_weekly_pre_early"])
 
 
 def _logistic_ps(design: pd.DataFrame) -> np.ndarray:
@@ -201,10 +213,12 @@ def _bootstrap_did(
         lifts[b] = atts[b] / pt * 100 if pt > 0 else np.nan
     lo, hi = np.percentile(atts, [2.5, 97.5])
     llo, lhi = np.nanpercentile(lifts, [2.5, 97.5])
+    p_value = float(min(1.0, 2.0 * min(np.mean(atts <= 0), np.mean(atts >= 0))))
     return {
         "att": att,
         "att_ci_low": float(lo),
         "att_ci_high": float(hi),
+        "p_value": p_value,
         "pre_treated_weekly": pre_t,
         "lift_pct": att / pre_t * 100 if pre_t > 0 else np.nan,
         "lift_ci_low": float(llo),
@@ -234,6 +248,52 @@ def placebo_pre_trend(design: pd.DataFrame, n_bootstrap=N_BOOTSTRAP, seed=RANDOM
         n_bootstrap,
         seed,
     )
+
+
+def placebo_far_window(design: pd.DataFrame, n_bootstrap=N_BOOTSTRAP, seed=RANDOM_STATE) -> dict:
+    """Held-out identification check (DL-014): DiD on weeks -24..-21 vs
+    -20..-17 - a window the propensity model never sees. Passing both this
+    and the in-window placebo is what 'pre-trend ok' means."""
+    return _bootstrap_did(
+        design["spend_weekly_far_early"].to_numpy(float),
+        design["spend_weekly_far_late"].to_numpy(float),
+        design["treated"].to_numpy(int),
+        design["att_weight"].to_numpy(float),
+        n_bootstrap,
+        seed,
+    )
+
+
+def pooled_effect(results: pd.DataFrame) -> dict:
+    """Meta-analysis of the reliable campaigns' ATTs (bootstrap SEs).
+
+    Fixed-effect (inverse-variance) and DerSimonian-Laird random-effects
+    estimates plus I-squared heterogeneity. Reported as one headline number
+    - still observational (R1)."""
+    rel = results[results["estimated"] & results["reliability_flag"].str.startswith("layak")]
+    att = rel["att"].to_numpy(float)
+    se = ((rel["att_ci_high"] - rel["att_ci_low"]) / (2 * 1.959963984540054)).to_numpy(float)
+    w = 1.0 / se**2
+    mu_fe = float((w * att).sum() / w.sum())
+    se_fe = float(np.sqrt(1.0 / w.sum()))
+    k = len(att)
+    Q = float((w * (att - mu_fe) ** 2).sum())
+    i2 = max(0.0, (Q - (k - 1)) / Q) if Q > 0 else 0.0
+    c = w.sum() - (w**2).sum() / w.sum()
+    tau2 = max(0.0, (Q - (k - 1)) / c) if c > 0 else 0.0
+    wr = 1.0 / (se**2 + tau2)
+    mu_re = float((wr * att).sum() / wr.sum())
+    se_re = float(np.sqrt(1.0 / wr.sum()))
+    return {
+        "k": int(k),
+        "att_fe": mu_fe,
+        "att_fe_ci_low": mu_fe - 1.96 * se_fe,
+        "att_fe_ci_high": mu_fe + 1.96 * se_fe,
+        "att_re": mu_re,
+        "att_re_ci_low": mu_re - 1.96 * se_re,
+        "att_re_ci_high": mu_re + 1.96 * se_re,
+        "i_squared": float(i2),
+    }
 
 
 def smd_table(design: pd.DataFrame) -> pd.DataFrame:
@@ -359,6 +419,7 @@ def build_campaign_results(
         seed = base_seed + cid
         att = estimate_att_bootstrap(design, n_bootstrap, seed)
         pla = placebo_pre_trend(design, n_bootstrap, seed + 10_000)
+        pla_far = placebo_far_window(design, n_bootstrap, seed + 20_000)
         att_ipw = estimate_att_bootstrap(d_ipw, n_bootstrap, seed)
         smd = smd_table(design)
         smd_max_before = float(smd["smd_before"].abs().max())
@@ -389,9 +450,13 @@ def build_campaign_results(
         tight = ratios(cost_tight)
         bound = ratios(cost_all)
 
+        in_ok = bool(pla["att_ci_low"] <= 0 <= pla["att_ci_high"])
+        far_ok = bool(pla_far["att_ci_low"] <= 0 <= pla_far["att_ci_high"])
         problems = []
-        if not (pla["att_ci_low"] <= 0 <= pla["att_ci_high"]):
+        if not in_ok:
             problems.append("pre-trend")
+        if not far_ok:
+            problems.append("pre-trend jauh")
         if smd_max_after >= SMD_TARGET:
             problems.append("balance")
         if min(n_t, n_c) < MIN_REPORTABLE_N:
@@ -399,10 +464,9 @@ def build_campaign_results(
         if problems:
             flag, reason = "tidak reliable — " + " & ".join(problems), "; ".join(problems)
         elif cid in BACKBONE_CAMPAIGNS:
-            flag, reason = "layak — utama (observasional)", "lolos placebo, balance, n"
+            flag, reason = "layak — utama (observasional)", "lolos placebo (dalam & jauh), balance, n"
         else:
-            flag, reason = "layak (observasional)", "lolos placebo, balance, n"
-        significance = "signifikan positif" if att["att_ci_low"] > 0 else "tidak signifikan"
+            flag, reason = "layak (observasional)", "lolos placebo (dalam & jauh), balance, n"
 
         n_red = int(redempt_n.get(cid, 0))
         rows.append(
@@ -423,8 +487,11 @@ def build_campaign_results(
                 "placebo_att": pla["att"],
                 "placebo_ci_low": pla["att_ci_low"],
                 "placebo_ci_high": pla["att_ci_high"],
-                "pre_trend_ok": bool(pla["att_ci_low"] <= 0 <= pla["att_ci_high"]),
-                "significance": significance,
+                "placebo_far_att": pla_far["att"],
+                "placebo_far_ci_low": pla_far["att_ci_low"],
+                "placebo_far_ci_high": pla_far["att_ci_high"],
+                "pre_trend_ok": in_ok,
+                "far_pre_trend_ok": far_ok,
                 "n_redeemers": n_red,
                 "redemption_rate": n_red / int(r.n_treated),
                 "voucher_cost_campaign_items": cost_tight,
@@ -444,7 +511,21 @@ def build_campaign_results(
     results = pd.DataFrame(rows)
     # non-estimated rows leave these columns as NaN/object - normalise dtypes
     results["estimated"] = results["estimated"].astype(bool)
-    if "pre_trend_ok" in results.columns:
-        results["pre_trend_ok"] = results["pre_trend_ok"].fillna(False).astype(bool)
+    for col in ("pre_trend_ok", "far_pre_trend_ok"):
+        if col in results.columns:
+            results[col] = results[col].fillna(False).astype(bool)
+    # multiplicity: Benjamini-Hochberg across the estimated campaigns
+    est_mask = results["estimated"].to_numpy()
+    if "p_value" in results.columns and est_mask.any():
+        from statsmodels.stats.multitest import multipletests
+
+        p = results.loc[est_mask, "p_value"].to_numpy(float)
+        rejected, p_bh, _, _ = multipletests(p, alpha=0.05, method="fdr_bh")
+        results.loc[est_mask, "p_bh"] = p_bh
+        results.loc[est_mask, "significance"] = np.where(
+            (p_bh < 0.05) & (results.loc[est_mask, "att"].to_numpy(float) > 0),
+            "signifikan positif (BH q<0,05)",
+            "tidak signifikan",
+        )
     events = pd.concat(event_frames, ignore_index=True) if event_frames else pd.DataFrame()
     return results, events
