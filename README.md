@@ -64,6 +64,12 @@ Raw data tidak pernah di-commit (R11); turunan besar hidup di `data/processed/*.
 - **Koreksi fakta:** hari 224 (campaign 26) jatuh di **minggu 33** menurut `WEEK_NO` aktual — catatan lama "minggu 32" berasal dari rumus naive yang salah; semua campaign mulai minggu ≥ 33.
 - **Control pool per campaign** (setelah exclude campaign overlap): backbone 8/13/18 = 1.359/1.374/1.251 household. Kelayakan DiD: 17 `layak` + 3 `layak — utama`, 9 `tidak reliable` (n_treated < 100 / window terpotong), 1 `excluded` (campaign 15).
 
+### Hasil model — Phase 2 CLV (terverifikasi 2026-10-25)
+
+- **R9 — ditulis apa adanya:** BG/NBD + Gamma-Gamma **kalah** dari baseline naif (rata-rata historis per household) pada holdout 26 minggu — MAE 322,2 vs 307,6 (95% CI selisih +8,6 s.d. +20,5; p_model_worse = 1,0), RMSE 488,5 vs 476,3, Spearman prediksi–aktual 0,773 vs 0,780. Konsisten dengan pola belanja grocery yang periodik. Konsekuensi: `clv_52w` (artefak `hh_clv.parquet`) hanya dipakai sebagai deskriptor berlabel asumsi; RFM kuintil dan baseline historis tetap acuan untuk targeting.
+- Asumsi independensi Gamma-Gamma dilanggar material: korelasi frequency–monetary Spearman ρ = 0,43 (p ≈ 1,8e-112) — limitation yang menempel pada `clv_52w`.
+- CLV 52 minggu (USD, net, n=2.500): p10 = 315 | p50 = 1.050 | p90 = 3.135 | p99 = 6.364.
+
 Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [`AGENTS.md`](AGENTS.md) §2–3.
 
 ## Milestone & status
@@ -71,7 +77,7 @@ Detail lengkap (skala treatment per campaign, jebakan data, fakta verifikasi): [
 | Phase | Isi | Status |
 |---|---|---|
 | 0–1 | EDA + panel `hh_week` + timeline campaign | **selesai** — DoD terpenuhi (sprint-p1, 2026-10-24) |
-| 2 | RFM + BG/NBD + Gamma-Gamma + diagnostic vs baseline naif | belum mulai |
+| 2 | RFM + BG/NBD + Gamma-Gamma + diagnostic vs baseline naif | **selesai** — DoD terpenuhi (sprint-p2, 2026-10-25); model kalah dari baseline naif, ditulis apa adanya (R9) |
 | 3 | Category penetration gap per cohort | belum mulai |
 | 4 | Campaign DiD + event study + balance | belum mulai |
 | 5 | Segmentasi K-means + stabilitas ARI | belum mulai |

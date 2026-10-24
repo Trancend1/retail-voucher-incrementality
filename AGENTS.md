@@ -72,6 +72,14 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 - Control pool per campaign (exclude overlap): 8=1.359, 13=1.374, 18=1.251; kelayakan: 17 `layak`, 3 `layak — utama`, 9 `tidak reliable`, 1 `excluded` (15).
 - Hari 224 (campaign 26) = minggu 33 via `WEEK_NO` aktual — catatan lama "minggu 32" salah (rumus naive, §3.3).
 
+### 2.3 Hasil terverifikasi Phase 2 — CLV (2026-10-25, sprint-p2)
+
+- Populasi validasi: 2.498 household aktif ≤ minggu 76 (2 terlambat — dikecualikan & dilaporkan); kuintil RFM full-period seimbang tepat 500/kuintil.
+- BG/NBD kalibrasi: penalizer 0, r=2,79 / α=5,23 / a=0,02 / b=10,31. Full: ConvergenceError tanpa penalizer → penalizer 0,01 (ladder resmi lifetimes), r=2,28 / α=4,28 / a=0,003 / b=0,51. 3 household 1-minggu-aktif (frequency=0) memicu NaN di lifetimes → ditangani cabang closed-form x=0 di `src/clv.py`.
+- Gamma-Gamma full: p=0,18 / q=4,45 / v=947. **Asumsi independensi F–M dilanggar** — Spearman ρ=0,429 (p≈1,8e-112) → limitation pada `clv_52w`.
+- CLV 52 minggu (USD, net, n=2.500): p10=315 | p50=1.050 | p90=3.135 | p99=6.364.
+- **R9: model kalah dari baseline naif** di holdout 26 minggu — MAE 322,2 vs 307,6 (95% CI selisih +8,6 s.d. +20,5; p_model_worse=1,0); RMSE 488,5 vs 476,3; Spearman 0,773 vs 0,780. Konsekuensi: `clv_52w` hanya deskriptor berlabel; RFM/baseline historis tetap acuan targeting.
+
 ---
 
 ## 3. Jebakan data (baca sebelum menulis query pertama)
@@ -203,4 +211,4 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Utang terbuka (per 2026-10-24)
 
-**Phase 0–1 selesai** (sprint-p1 L0–L9, 2026-10-24): DoD terpenuhi — panel `hh_week` 255.000 baris, timeline 30 campaign + control pool + daftar kelayakan (gate #1–#5), 23 test hijau, notebook `01_panel.ipynb` ter-render. Hasil terverifikasi dicatat di §2.2. Berikutnya: Phase 2 (CLV) — rencana eksekusi phase berikutnya mengikuti pola sprint (docs/sprint-*.md, lokal).
+**Phase 0–1 & Phase 2 selesai** (sprint-p1 2026-10-24; sprint-p2 2026-10-25): panel + timeline + kelayakan DiD (hasil di §2.2) dan RFM + CLV 52 minggu + evaluasi vs baseline naif (hasil di §2.3, termasuk kekalahan model R9); 33 test hijau. Berikutnya: Phase 3 (category penetration gap). Rencana per phase mengikuti pola sprint (`docs/sprint-*.md`, lokal).
