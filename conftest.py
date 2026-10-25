@@ -162,3 +162,13 @@ def segment_table(hh_week, seg_full, segments, whitespace):
     thresholds = segments_lib.churn_thresholds(hh_week)
     churn = segments_lib.churn_flags(hh_week, thresholds)
     return segments_lib.build_segment_table(segments, churn, whitespace, thresholds)
+
+
+# --- Phase 6 Stage 1 (uplift randomized, X5) ---
+
+
+@pytest.fixture(scope="session")
+def x5_features():
+    from src.x5 import load_x5_features
+
+    return load_x5_features()
