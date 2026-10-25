@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Retail Voucher Incrementality — Dashboard MVP</title>
+<title>Retail Voucher Incrementality — Dashboard</title>
 <style>
 :root{--ink:#0f172a;--mut:#64748b;--line:#e2e8f0;--bg:#f8fafc}
 *{box-sizing:border-box}
@@ -32,6 +32,10 @@ h3{font-size:13.5px;margin:22px 0 8px;color:#334155}
 .tbl th,.tbl td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .tbl th{background:#f1f5f9;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#334155}
 .tbl tr:last-child td{border-bottom:none}
+.widget{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0}
+.controls{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:6px}
+.controls label{display:flex;flex-direction:column;font-size:12px;color:#334155;gap:4px}
+.controls select,.controls input[type=range]{accent-color:#0f766e}
 .flag{display:inline-block;font-weight:600;white-space:nowrap}
 .reason{display:block;color:var(--mut);font-size:10.5px;max-width:260px}
 .warn{color:#b45309;font-weight:600}
@@ -41,9 +45,9 @@ footer{padding:14px 28px 30px;color:var(--mut);font-size:11.5px;max-width:1180px
 </head>
 <body>
 <header>
-  <h1>Retail Voucher Incrementality — Dashboard MVP</h1>
+  <h1>Retail Voucher Incrementality — Dashboard</h1>
   <p class="sub">Panel Dunnhumby Complete Journey (2.500 member, 102 minggu, USD net). Efek campaign bersifat <b>observational — di bawah asumsi unconfoundedness</b>; whitespace kategori adalah <b>proxy dalam satu retailer</b>; margin adalah parameter asumsi; horizon nilai member selalu <b>CLV 52 minggu</b>. Angka dibangun dari parquet fase analisis dan dikunci suite test.</p>
-  <nav><button class="tab active" data-target="overview">Member Overview</button><button class="tab" data-target="segments">Segment Deep Dive</button><button class="tab" data-target="campaigns">Campaign Lift</button></nav>
+  <nav><button class="tab active" data-target="overview">Member Overview</button><button class="tab" data-target="segments">Segment Deep Dive</button><button class="tab" data-target="campaigns">Campaign Lift</button><button class="tab" data-target="voucher">Voucher Efficiency</button></nav>
 </header>
 <section id="overview" class="page visible">
 <h2>Member Overview</h2>
@@ -3279,8 +3283,557 @@ L 394.055313 469.286688
 <h3>Semua 30 campaign (flag reliabilitas + alasan)</h3>
 <table class="tbl "><thead><tr><th>ID</th><th>tipe</th><th>minggu</th><th>n treated</th><th>n control</th><th>ATT $/mgg [95% CI]</th><th>lift</th><th>redempt</th><th>per $1 ketat</th><th>signifikansi</th><th>status & alasan</th></tr></thead><tbody><tr><td><b>1</b></td><td>B</td><td>50–55</td><td>13</td><td>1.950</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">n_treated=13 &lt; 100 — laporkan sebagai agregat</span></td></tr><tr><td><b>2</b></td><td>B</td><td>51–55</td><td>48</td><td>1.950</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">n_treated=48 &lt; 100 — laporkan sebagai agregat</span></td></tr><tr><td><b>3</b></td><td>C</td><td>52–60</td><td>12</td><td>1.284</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">n_treated=12 &lt; 100 — laporkan sebagai agregat</span></td></tr><tr><td><b>4</b></td><td>B</td><td>54–58</td><td>81</td><td>2.052</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">n_treated=81 &lt; 100 — laporkan sebagai agregat</span></td></tr><tr><td><b>5</b></td><td>B</td><td>55–59</td><td>166</td><td>2.052</td><td>6,06 [0,41; 10,78]</td><td>9,9%</td><td>8 (5%)</td><td>$42,77</td><td>tidak signifikan</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>6</b></td><td>C</td><td>57–61</td><td>65</td><td>1.384</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">n_treated=65 &lt; 100 — laporkan sebagai agregat</span></td></tr><tr><td><b>7</b></td><td>B</td><td>58–62</td><td>198</td><td>1.384</td><td>3,18 [-1,29; 7,38]</td><td>7,4%</td><td>5 (2%)</td><td>$119,85</td><td>tidak signifikan</td><td><span class="flag" style="color:#d97706">tidak reliable — pre-trend jauh</span><span class="reason">pre-trend jauh</span></td></tr><tr><td><b>8</b></td><td>A</td><td>60–66</td><td>1.076</td><td>1.359</td><td>2,67 [0,69; 4,51]</td><td>9,8%</td><td>158 (15%)</td><td>$3,55</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#0f766e">layak — utama (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>9</b></td><td>B</td><td>63–67</td><td>176</td><td>1.365</td><td>-0,74 [-5,52; 3,62]</td><td>-1,7%</td><td>20 (11%)</td><td>$-3,54</td><td>tidak signifikan</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>10</b></td><td>B</td><td>67–71</td><td>123</td><td>1.951</td><td>0,49 [-6,24; 7,06]</td><td>0,8%</td><td>10 (8%)</td><td>$3,11</td><td>tidak signifikan</td><td><span class="flag" style="color:#d97706">tidak reliable — pre-trend jauh</span><span class="reason">pre-trend jauh</span></td></tr><tr><td><b>11</b></td><td>B</td><td>69–75</td><td>214</td><td>1.377</td><td>3,01 [-1,82; 8,25]</td><td>6,9%</td><td>6 (3%)</td><td>$79,03</td><td>tidak signifikan</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>12</b></td><td>B</td><td>69–73</td><td>170</td><td>1.377</td><td>6,81 [0,89; 12,85]</td><td>15,7%</td><td>11 (6%)</td><td>$120,58</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>13</b></td><td>A</td><td>73–79</td><td>1.077</td><td>1.374</td><td>4,12 [2,20; 6,14]</td><td>15,2%</td><td>196 (18%)</td><td>$3,31</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#0f766e">layak — utama (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>14</b></td><td>C</td><td>77–86</td><td>224</td><td>1.150</td><td>11,16 [6,07; 16,01]</td><td>31,2%</td><td>18 (8%)</td><td>$94,17</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>15</b></td><td>C</td><td>79–102</td><td>17</td><td>1.104</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">excluded</span><span class="reason">window 162 hari overlap 12 campaign — di luar estimasi utama</span></td></tr><tr><td><b>16</b></td><td>B</td><td>81–85</td><td>188</td><td>1.308</td><td>7,02 [1,85; 12,19]</td><td>16,4%</td><td>19 (10%)</td><td>$33,00</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>17</b></td><td>B</td><td>83–87</td><td>202</td><td>1.291</td><td>3,40 [-1,33; 8,45]</td><td>7,8%</td><td>18 (9%)</td><td>$15,77</td><td>tidak signifikan</td><td><span class="flag" style="color:#d97706">tidak reliable — pre-trend jauh</span><span class="reason">pre-trend jauh</span></td></tr><tr><td><b>18</b></td><td>A</td><td>85–92</td><td>1.133</td><td>1.251</td><td>4,29 [2,41; 6,05]</td><td>18,1%</td><td>214 (19%)</td><td>$2,52</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#d97706">tidak reliable — pre-trend jauh</span><span class="reason">pre-trend jauh</span></td></tr><tr><td><b>19</b></td><td>B</td><td>87–91</td><td>130</td><td>1.281</td><td>6,33 [0,62; 11,79]</td><td>14,9%</td><td>15 (12%)</td><td>$17,51</td><td>tidak signifikan</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>20</b></td><td>C</td><td>89–99</td><td>244</td><td>1.262</td><td>11,41 [6,21; 17,39]</td><td>27,9%</td><td>20 (8%)</td><td>$82,14</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>21</b></td><td>B</td><td>90–94</td><td>65</td><td>1.273</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">n_treated=65 &lt; 100 — laporkan sebagai agregat; window identik dengan 22</span></td></tr><tr><td><b>22</b></td><td>B</td><td>90–94</td><td>276</td><td>1.273</td><td>7,33 [2,65; 12,26]</td><td>17,7%</td><td>17 (6%)</td><td>$33,61</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>23</b></td><td>B</td><td>93–98</td><td>183</td><td>1.876</td><td>8,65 [3,29; 14,54]</td><td>14,0%</td><td>23 (13%)</td><td>$29,97</td><td>signifikan positif (BH q&lt;0,05)</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>24</b></td><td>B</td><td>95–102</td><td>100</td><td>2.005</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">end_day 719 &gt; akhir data 711 — window terpotong</span></td></tr><tr><td><b>25</b></td><td>B</td><td>95–99</td><td>187</td><td>2.005</td><td>6,29 [1,08; 11,38]</td><td>10,3%</td><td>24 (13%)</td><td>$23,63</td><td>tidak signifikan</td><td><span class="flag" style="color:#d97706">tidak reliable — pre-trend jauh</span><span class="reason">pre-trend jauh</span></td></tr><tr><td><b>26</b></td><td>A</td><td>33–38</td><td>332</td><td>2.165</td><td>1,89 [-0,55; 4,62]</td><td>4,6%</td><td>31 (9%)</td><td>$4,53</td><td>tidak signifikan</td><td><span class="flag" style="color:#d97706">tidak reliable — pre-trend jauh</span><span class="reason">pre-trend jauh</span></td></tr><tr><td><b>27</b></td><td>C</td><td>35–44</td><td>12</td><td>2.078</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">n_treated=12 &lt; 100 — laporkan sebagai agregat</span></td></tr><tr><td><b>28</b></td><td>B</td><td>38–46</td><td>17</td><td>2.078</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="flag" style="color:#d97706">tidak reliable</span><span class="reason">n_treated=17 &lt; 100 — laporkan sebagai agregat</span></td></tr><tr><td><b>29</b></td><td>B</td><td>41–48</td><td>118</td><td>2.057</td><td>1,16 [-3,09; 5,36]</td><td>2,6%</td><td>13 (11%)</td><td>$6,57</td><td>tidak signifikan</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr><tr><td><b>30</b></td><td>A</td><td>47–53</td><td>361</td><td>2.040</td><td>0,53 [-1,90; 2,93]</td><td>1,3%</td><td>36 (10%)</td><td>$2,12</td><td>tidak signifikan</td><td><span class="flag" style="color:#0f766e">layak (observasional)</span><span class="reason">lolos placebo (dalam &amp; jauh), balance, n</span></td></tr></tbody></table>
 <p class="note">Campaign tanpa estimasi: n treated &lt; 100 (laporkan agregat), overlap parah (15 — excluded), atau window terpotong akhir data (24). Signifikansi = BH q&lt;0,05 atas 20 campaign terestimasi. n &lt; 30 per sel tidak dilaporkan.</p>
+</section><section id="voucher" class="page">
+<h2>Voucher Efficiency</h2>
+<p class="note"><b>Observational — di bawah asumsi unconfoundedness.</b> Simulasi mengulang 8 campaign akhir held-out; belanja incremental dihitung horizon window (uplift $/minggu × panjang window × audiens) versus biaya kupon terobservasi dalam <b>dua batas atribusi</b> (ketat = kupon produk daftar campaign; konservatif = semua kupon). Margin 15/25/35% adalah <b>parameter asumsi, bukan data</b>. CI = cluster bootstrap by household; keanggotaan audiens tetap.</p>
+<div class="cards"><div class="card"><div class="kpi-label">Uplift top-2 decile</div><div class="kpi-value">$232</div><div class="kpi-sub">95% CI [124; 402] · batas ketat</div></div><div class="card"><div class="kpi-label">vs blanket / RFM</div><div class="kpi-value">2,6× / 3,8×</div><div class="kpi-sub">batas ketat; urutan stabil di 2 batas &amp; subset layak</div></div><div class="card"><div class="kpi-label">Margin 25% + konservatif</div><div class="kpi-value">+$6,93</div><div class="kpi-sub">incremental margin per $1 (blanket +$2,08)</div></div><div class="card"><div class="kpi-label">Break-even margin</div><div class="kpi-value">0,4% ketat · 3,2% konservatif</div><div class="kpi-sub">margin minimum agar margin per $1 ≥ 0</div></div></div>
+<div class="chart"><?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="725.169219pt" height="256.6124pt" viewBox="0 0 725.169219 256.6124" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.9.3, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 256.6124 
+L 725.169219 256.6124 
+L 725.169219 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 141.184609 221.472 
+L 349.166428 221.472 
+L 349.166428 44.064 
+L 141.184609 44.064 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 150.638328 221.472 
+L 182.150725 221.472 
+L 182.150725 183.477015 
+L 150.638328 183.477015 
+z
+" clip-path="url(#pd28dbd8cd8)" style="fill: #475569; opacity: 0.9"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 190.028824 221.472 
+L 221.541221 221.472 
+L 221.541221 123.878687 
+L 190.028824 123.878687 
+z
+" clip-path="url(#pd28dbd8cd8)" style="fill: #0f766e; opacity: 0.9"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 229.41932 221.472 
+L 260.931717 221.472 
+L 260.931717 143.632716 
+L 229.41932 143.632716 
+z
+" clip-path="url(#pd28dbd8cd8)" style="fill: #14b8a6; opacity: 0.9"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 268.809816 221.472 
+L 300.322213 221.472 
+L 300.322213 195.539582 
+L 268.809816 195.539582 
+z
+" clip-path="url(#pd28dbd8cd8)" style="fill: #d97706; opacity: 0.9"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 308.200312 221.472 
+L 339.712709 221.472 
+L 339.712709 181.669731 
+L 308.200312 181.669731 
+z
+" clip-path="url(#pd28dbd8cd8)" style="fill: #f59e0b; opacity: 0.9"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="mf4d5037931" d="M 0 0 
+L 0 3.5 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mf4d5037931" x="166.394527" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(139.718513 243.342254) rotate(-20)">blanket</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#mf4d5037931" x="205.785023" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(166.458397 247.9467) rotate(-20)">uplift top-2</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#mf4d5037931" x="245.175518" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(205.848893 247.9467) rotate(-20)">uplift top-4</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#mf4d5037931" x="284.566014" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(248.185105 246.874547) rotate(-20)">RFM top-2</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#mf4d5037931" x="323.95651" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(287.575601 246.874547) rotate(-20)">RFM top-4</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_6">
+      <defs>
+       <path id="mc1ef1bde07" d="M 0 0 
+L -3.5 0 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="224.891297" transform="rotate(-0 134.184609 224.891297)">0</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="200.457075" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="203.876372" transform="rotate(-0 134.184609 203.876372)">50</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="179.442149" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="182.861446" transform="rotate(-0 134.184609 182.861446)">100</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="158.427224" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="161.846521" transform="rotate(-0 134.184609 161.846521)">150</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="137.412299" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="140.831595" transform="rotate(-0 134.184609 140.831595)">200</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_11">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="116.397373" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="119.81667" transform="rotate(-0 134.184609 119.81667)">250</text>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="95.382448" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_12">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="98.801745" transform="rotate(-0 134.184609 98.801745)">300</text>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="74.367522" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_13">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="77.786819" transform="rotate(-0 134.184609 77.786819)">350</text>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="141.184609" y="53.352597" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="134.184609" y="56.771894" transform="rotate(-0 134.184609 56.771894)">400</text>
+     </g>
+    </g>
+    <g id="text_15">
+     <text style="font: 9px 'DejaVu Sans'; text-anchor: middle" x="111.134141" y="132.768" transform="rotate(-90 111.134141 132.768)">USD incremental / $1 voucher</text>
+    </g>
+   </g>
+   <g id="LineCollection_1">
+    <path d="M 166.394527 195.287403 
+L 166.394527 170.279642 
+" clip-path="url(#pd28dbd8cd8)" style="fill: none; stroke: #334155"/>
+    <path d="M 205.785023 169.312955 
+L 205.785023 52.512 
+" clip-path="url(#pd28dbd8cd8)" style="fill: none; stroke: #334155"/>
+    <path d="M 245.175518 177.887045 
+L 245.175518 91.431642 
+" clip-path="url(#pd28dbd8cd8)" style="fill: none; stroke: #334155"/>
+    <path d="M 284.566014 207.812299 
+L 284.566014 180.913194 
+" clip-path="url(#pd28dbd8cd8)" style="fill: none; stroke: #334155"/>
+    <path d="M 323.95651 193.22794 
+L 323.95651 168.09409 
+" clip-path="url(#pd28dbd8cd8)" style="fill: none; stroke: #334155"/>
+   </g>
+   <g id="line2d_15">
+    <defs>
+     <path id="md9eb36bb03" d="M 2 0 
+L -2 -0 
+" style="stroke: #334155"/>
+    </defs>
+    <g clip-path="url(#pd28dbd8cd8)">
+     <use xlink:href="#md9eb36bb03" x="166.394527" y="195.287403" style="fill: #334155; stroke: #334155"/>
+     <use xlink:href="#md9eb36bb03" x="205.785023" y="169.312955" style="fill: #334155; stroke: #334155"/>
+     <use xlink:href="#md9eb36bb03" x="245.175518" y="177.887045" style="fill: #334155; stroke: #334155"/>
+     <use xlink:href="#md9eb36bb03" x="284.566014" y="207.812299" style="fill: #334155; stroke: #334155"/>
+     <use xlink:href="#md9eb36bb03" x="323.95651" y="193.22794" style="fill: #334155; stroke: #334155"/>
+    </g>
+   </g>
+   <g id="line2d_16">
+    <g clip-path="url(#pd28dbd8cd8)">
+     <use xlink:href="#md9eb36bb03" x="166.394527" y="170.279642" style="fill: #334155; stroke: #334155"/>
+     <use xlink:href="#md9eb36bb03" x="205.785023" y="52.512" style="fill: #334155; stroke: #334155"/>
+     <use xlink:href="#md9eb36bb03" x="245.175518" y="91.431642" style="fill: #334155; stroke: #334155"/>
+     <use xlink:href="#md9eb36bb03" x="284.566014" y="180.913194" style="fill: #334155; stroke: #334155"/>
+     <use xlink:href="#md9eb36bb03" x="323.95651" y="168.09409" style="fill: #334155; stroke: #334155"/>
+    </g>
+   </g>
+   <g id="patch_8">
+    <path d="M 141.184609 221.472 
+L 141.184609 44.064 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 141.184609 221.472 
+L 349.166428 221.472 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_16">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="166.394527" y="181.917249" transform="rotate(-0 166.394527 181.917249)">90</text>
+   </g>
+   <g id="text_17">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="205.785023" y="122.318921" transform="rotate(-0 205.785023 122.318921)">232</text>
+   </g>
+   <g id="text_18">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="245.175518" y="142.072951" transform="rotate(-0 245.175518 142.072951)">185</text>
+   </g>
+   <g id="text_19">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="284.566014" y="193.979816" transform="rotate(-0 284.566014 193.979816)">62</text>
+   </g>
+   <g id="text_20">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="323.95651" y="180.109966" transform="rotate(-0 323.95651 180.109966)">95</text>
+   </g>
+   <g id="text_21">
+    <text style="font: 700 9px 'DejaVu Sans'; text-anchor: middle" x="245.175518" y="38.064" transform="rotate(-0 245.175518 38.064)">batas ketat (whisker = 95% CI)</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_10">
+    <path d="M 390.762791 221.472 
+L 598.744609 221.472 
+L 598.744609 44.064 
+L 390.762791 44.064 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 400.21651 221.472 
+L 431.728907 221.472 
+L 431.728907 155.913388 
+L 400.21651 155.913388 
+z
+" clip-path="url(#pf9248f1a70)" style="fill: #475569; opacity: 0.9"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 439.607006 221.472 
+L 471.119403 221.472 
+L 471.119403 52.512 
+L 439.607006 52.512 
+z
+" clip-path="url(#pf9248f1a70)" style="fill: #0f766e; opacity: 0.9"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 478.997502 221.472 
+L 510.509899 221.472 
+L 510.509899 97.816732 
+L 478.997502 97.816732 
+z
+" clip-path="url(#pf9248f1a70)" style="fill: #14b8a6; opacity: 0.9"/>
+   </g>
+   <g id="patch_14">
+    <path d="M 518.387998 221.472 
+L 549.900394 221.472 
+L 549.900394 169.238309 
+L 518.387998 169.238309 
+z
+" clip-path="url(#pf9248f1a70)" style="fill: #d97706; opacity: 0.9"/>
+   </g>
+   <g id="patch_15">
+    <path d="M 557.778494 221.472 
+L 589.29089 221.472 
+L 589.29089 145.253451 
+L 557.778494 145.253451 
+z
+" clip-path="url(#pf9248f1a70)" style="fill: #f59e0b; opacity: 0.9"/>
+   </g>
+   <g id="matplotlib.axis_3">
+    <g id="xtick_6">
+     <g id="line2d_17">
+      <g>
+       <use xlink:href="#mf4d5037931" x="415.972709" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_22">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(389.296695 243.342254) rotate(-20)">blanket</text>
+     </g>
+    </g>
+    <g id="xtick_7">
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#mf4d5037931" x="455.363204" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_23">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(416.036579 247.9467) rotate(-20)">uplift top-2</text>
+     </g>
+    </g>
+    <g id="xtick_8">
+     <g id="line2d_19">
+      <g>
+       <use xlink:href="#mf4d5037931" x="494.7537" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_24">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(455.427075 247.9467) rotate(-20)">uplift top-4</text>
+     </g>
+    </g>
+    <g id="xtick_9">
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#mf4d5037931" x="534.144196" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_25">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(497.763287 246.874547) rotate(-20)">RFM top-2</text>
+     </g>
+    </g>
+    <g id="xtick_10">
+     <g id="line2d_21">
+      <g>
+       <use xlink:href="#mf4d5037931" x="573.534692" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_26">
+      <text style="font: 7.5px 'DejaVu Sans'" transform="translate(537.153783 246.874547) rotate(-20)">RFM top-4</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_10">
+     <g id="line2d_22">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="390.762791" y="221.472" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_27">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="383.762791" y="224.891297" transform="rotate(-0 383.762791 224.891297)">0</text>
+     </g>
+    </g>
+    <g id="ytick_11">
+     <g id="line2d_23">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="390.762791" y="194.822158" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_28">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="383.762791" y="198.241455" transform="rotate(-0 383.762791 198.241455)">5</text>
+     </g>
+    </g>
+    <g id="ytick_12">
+     <g id="line2d_24">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="390.762791" y="168.172315" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_29">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="383.762791" y="171.591612" transform="rotate(-0 383.762791 171.591612)">10</text>
+     </g>
+    </g>
+    <g id="ytick_13">
+     <g id="line2d_25">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="390.762791" y="141.522473" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_30">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="383.762791" y="144.94177" transform="rotate(-0 383.762791 144.94177)">15</text>
+     </g>
+    </g>
+    <g id="ytick_14">
+     <g id="line2d_26">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="390.762791" y="114.872631" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_31">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="383.762791" y="118.291928" transform="rotate(-0 383.762791 118.291928)">20</text>
+     </g>
+    </g>
+    <g id="ytick_15">
+     <g id="line2d_27">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="390.762791" y="88.222789" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_32">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="383.762791" y="91.642086" transform="rotate(-0 383.762791 91.642086)">25</text>
+     </g>
+    </g>
+    <g id="ytick_16">
+     <g id="line2d_28">
+      <g>
+       <use xlink:href="#mc1ef1bde07" x="390.762791" y="61.572946" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_33">
+      <text style="font: 9px 'DejaVu Sans'; text-anchor: end" x="383.762791" y="64.992243" transform="rotate(-0 383.762791 64.992243)">30</text>
+     </g>
+    </g>
+    <g id="text_34">
+     <text style="font: 9px 'DejaVu Sans'; text-anchor: middle" x="366.438572" y="132.768" transform="rotate(-90 366.438572 132.768)">USD incremental / $1 voucher</text>
+    </g>
+   </g>
+   <g id="patch_16">
+    <path d="M 390.762791 221.472 
+L 390.762791 44.064 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_17">
+    <path d="M 390.762791 221.472 
+L 598.744609 221.472 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_35">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="415.972709" y="154.353622" transform="rotate(-0 415.972709 154.353622)">12</text>
+   </g>
+   <g id="text_36">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="455.363204" y="50.952234" transform="rotate(-0 455.363204 50.952234)">32</text>
+   </g>
+   <g id="text_37">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="494.7537" y="96.256966" transform="rotate(-0 494.7537 96.256966)">23</text>
+   </g>
+   <g id="text_38">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="534.144196" y="167.678544" transform="rotate(-0 534.144196 167.678544)">10</text>
+   </g>
+   <g id="text_39">
+    <text style="font: 7.5px 'DejaVu Sans'; text-anchor: middle" x="573.534692" y="143.693685" transform="rotate(-0 573.534692 143.693685)">14</text>
+   </g>
+   <g id="text_40">
+    <text style="font: 700 9px 'DejaVu Sans'; text-anchor: middle" x="494.7537" y="38.064" transform="rotate(-0 494.7537 38.064)">batas konservatif (semua kupon)</text>
+   </g>
+  </g>
+  <g id="text_41">
+   <text style="font: 9.5px 'DejaVu Sans'; text-anchor: middle" x="362.584609" y="14.418516" transform="rotate(-0 362.584609 14.418516)">Incremental spend per $1 voucher per skenario — 8 campaign akhir held-out (n=14.090 baris household×campaign; horizon window; observasional)</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="pd28dbd8cd8">
+   <rect x="141.184609" y="44.064" width="207.981818" height="177.408"/>
+  </clipPath>
+  <clipPath id="pf9248f1a70">
+   <rect x="390.762791" y="44.064" width="207.981818" height="177.408"/>
+  </clipPath>
+ </defs>
+</svg>
+</div>
+<h3>Tabel skenario</h3>
+<table class="tbl "><thead><tr><th>skenario</th><th>n target</th><th>biaya voucher (ketat / konservatif)</th><th>per $1 — ketat [95% CI]</th><th>per $1 — konservatif</th><th>margin per $1 konservatif (15/25/35%)</th><th>break-even margin (ketat / konservatif)</th></tr></thead><tbody><tr><td>blanket</td><td>14.090</td><td>$6.928 / $50.827</td><td>$90,4 [62; 122]</td><td>$12,3</td><td>$0,85 / $2,08 / $3,31</td><td>1,1% / 8,1%</td></tr><tr><td>uplift top-2 decile</td><td>2.822</td><td>$954 / $6.985</td><td>$232,2 [124; 402]</td><td>$31,7</td><td>$3,76 / $6,93 / $10,10</td><td>0,4% / 3,2%</td></tr><tr><td>uplift top-4 decile</td><td>5.640</td><td>$1.992 / $15.884</td><td>$185,2 [104; 309]</td><td>$23,2</td><td>$2,48 / $4,80 / $7,13</td><td>0,5% / 4,3%</td></tr><tr><td>RFM top-2 decile</td><td>2.822</td><td>$2.071 / $13.054</td><td>$61,7 [32; 96]</td><td>$9,8</td><td>$0,47 / $1,45 / $2,43</td><td>1,6% / 10,2%</td></tr><tr><td>RFM top-4 decile</td><td>5.640</td><td>$3.372 / $22.371</td><td>$94,7 [67; 127]</td><td>$14,3</td><td>$1,14 / $2,57 / $4,00</td><td>1,1% / 7,0%</td></tr></tbody></table>
+<h3>What-if — hitung sendiri dengan parameter Anda</h3>
+<div class="widget">
+  <div class="controls">
+    <label>Skor targeting
+      <select id="wi-score">
+        <option value="uplift">skor uplift (X-learner)</option>
+        <option value="rfm">RFM (belanja pra-campaign)</option>
+      </select>
+    </label>
+    <label>Proporsi audiens ditarget: <span id="wi-frac-val">20%</span>
+      <input type="range" id="wi-frac" min="5" max="100" step="5" value="20">
+    </label>
+    <label>Margin (asumsi): <span id="wi-margin-val">25%</span>
+      <input type="range" id="wi-margin" min="5" max="40" step="1" value="25">
+    </label>
+  </div>
+  <div class="cards" id="wi-out"></div>
+  <p class="note">Grid precomputed dari mesin simulasi Phase 7 pada 20 titik proporsi (5–100%); slider memilih titik terdekat. Pesan tetap: margin = parameter asumsi; angka efek estimasi observational, bukan janji hasil — keputusan produksi perlu holdout eksperimen.</p>
+</div>
+<script type="application/json" id="whatif-data">{"fracs":[0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1.0],"grid":{"uplift":[{"frac":0.05,"n":708.0,"incr":89481.0,"cost_tight":194.0,"cost_all":1995.0},{"frac":0.1,"n":1413.0,"incr":151704.0,"cost_tight":460.0,"cost_all":4029.0},{"frac":0.15,"n":2116.0,"incr":194780.0,"cost_tight":731.0,"cost_all":5506.0},{"frac":0.2,"n":2822.0,"incr":221609.0,"cost_tight":954.0,"cost_all":6985.0},{"frac":0.25,"n":3525.0,"incr":274182.0,"cost_tight":1254.0,"cost_all":8720.0},{"frac":0.3,"n":4230.0,"incr":310389.0,"cost_tight":1479.0,"cost_all":11342.0},{"frac":0.35,"n":4936.0,"incr":363069.0,"cost_tight":1733.0,"cost_all":13480.0},{"frac":0.4,"n":5640.0,"incr":368801.0,"cost_tight":1992.0,"cost_all":15884.0},{"frac":0.45,"n":6344.0,"incr":384547.0,"cost_tight":2205.0,"cost_all":17436.0},{"frac":0.5,"n":7047.0,"incr":396534.0,"cost_tight":2511.0,"cost_all":19168.0},{"frac":0.55,"n":7754.0,"incr":398773.0,"cost_tight":2894.0,"cost_all":21493.0},{"frac":0.6,"n":8458.0,"incr":460202.0,"cost_tight":3115.0,"cost_all":22941.0},{"frac":0.65,"n":9162.0,"incr":467709.0,"cost_tight":3275.0,"cost_all":24640.0},{"frac":0.7,"n":9868.0,"incr":472196.0,"cost_tight":3444.0,"cost_all":25850.0},{"frac":0.75,"n":10570.0,"incr":472086.0,"cost_tight":3695.0,"cost_all":28239.0},{"frac":0.8,"n":11276.0,"incr":494258.0,"cost_tight":3926.0,"cost_all":28918.0},{"frac":0.85,"n":11982.0,"incr":553378.0,"cost_tight":4193.0,"cost_all":30399.0},{"frac":0.9,"n":12685.0,"incr":571097.0,"cost_tight":4677.0,"cost_all":33337.0},{"frac":0.95,"n":13390.0,"incr":600306.0,"cost_tight":5792.0,"cost_all":42287.0},{"frac":1.0,"n":14090.0,"incr":626024.0,"cost_tight":6928.0,"cost_all":50827.0}],"rfm":[{"frac":0.05,"n":708.0,"incr":42988.0,"cost_tight":593.0,"cost_all":4381.0},{"frac":0.1,"n":1413.0,"incr":72374.0,"cost_tight":1204.0,"cost_all":7668.0},{"frac":0.15,"n":2116.0,"incr":103187.0,"cost_tight":1672.0,"cost_all":10526.0},{"frac":0.2,"n":2822.0,"incr":127816.0,"cost_tight":2071.0,"cost_all":13054.0},{"frac":0.25,"n":3525.0,"incr":192703.0,"cost_tight":2469.0,"cost_all":15509.0},{"frac":0.3,"n":4230.0,"incr":216178.0,"cost_tight":2731.0,"cost_all":17692.0},{"frac":0.35,"n":4936.0,"incr":273695.0,"cost_tight":3084.0,"cost_all":19944.0},{"frac":0.4,"n":5640.0,"incr":319337.0,"cost_tight":3372.0,"cost_all":22371.0},{"frac":0.45,"n":6344.0,"incr":339292.0,"cost_tight":3636.0,"cost_all":24647.0},{"frac":0.5,"n":7047.0,"incr":365413.0,"cost_tight":3922.0,"cost_all":26908.0},{"frac":0.55,"n":7754.0,"incr":388113.0,"cost_tight":4226.0,"cost_all":29203.0},{"frac":0.6,"n":8458.0,"incr":412408.0,"cost_tight":4469.0,"cost_all":31516.0},{"frac":0.65,"n":9162.0,"incr":434643.0,"cost_tight":4768.0,"cost_all":33909.0},{"frac":0.7,"n":9868.0,"incr":465864.0,"cost_tight":5048.0,"cost_all":36258.0},{"frac":0.75,"n":10570.0,"incr":490668.0,"cost_tight":5341.0,"cost_all":38578.0},{"frac":0.8,"n":11276.0,"incr":514465.0,"cost_tight":5657.0,"cost_all":41015.0},{"frac":0.85,"n":11982.0,"incr":539598.0,"cost_tight":5947.0,"cost_all":43427.0},{"frac":0.9,"n":12685.0,"incr":566910.0,"cost_tight":6273.0,"cost_all":45873.0},{"frac":0.95,"n":13390.0,"incr":594798.0,"cost_tight":6597.0,"cost_all":48376.0},{"frac":1.0,"n":14090.0,"incr":626024.0,"cost_tight":6928.0,"cost_all":50827.0}]},"score_labels":{"uplift":"skor uplift (X-learner)","rfm":"RFM (belanja pra-campaign)"}}</script>
 </section>
-<footer>Sumber: data/processed/*.parquet (hh_week, hh_clv, segments, segment_summary, hh_whitespace, campaign_did_results) — dibangun oleh <code>src/dashboard.py</code>; angka terkunci <code>tests/test_dashboard.py</code>. Estimasi menyertakan n dan 95% CI; sel dengan n &lt; 30 tidak dilaporkan; reliability_flag ditampilkan beserta alasannya, tidak disembunyikan.</footer>
+<footer>Sumber: data/processed/*.parquet (hh_week, hh_clv, segments, segment_summary, hh_whitespace, campaign_did_results, uplift_scores, roi_scenarios) — dibangun oleh <code>src/dashboard.py</code>; angka terkunci <code>tests/test_dashboard.py</code>. Estimasi menyertakan n dan 95% CI; sel dengan n &lt; 30 tidak dilaporkan; reliability_flag ditampilkan beserta alasannya, tidak disembunyikan. Halaman 4 (what-if) menghitung dari grid precomputed Phase 7 — margin adalah parameter asumsi.</footer>
 <script>
 var tabs=document.querySelectorAll('.tab'),pages=document.querySelectorAll('.page');
 tabs.forEach(function(t){t.addEventListener('click',function(){
@@ -3290,6 +3843,31 @@ tabs.forEach(function(t){t.addEventListener('click',function(){
   document.getElementById(t.dataset.target).classList.add('visible');
   window.scrollTo({top:0});
 });});
+function wiCard(l,v,s){return '<div class="card"><div class="kpi-label">'+l+'</div><div class="kpi-value">'+v+'</div><div class="kpi-sub">'+s+'</div></div>';}
+function wiFmt(x,d){return x.toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function wiUpdate(){
+  var data=JSON.parse(document.getElementById('whatif-data').textContent);
+  var score=document.getElementById('wi-score').value;
+  var frac=+document.getElementById('wi-frac').value/100;
+  var margin=+document.getElementById('wi-margin').value/100;
+  document.getElementById('wi-frac-val').textContent=Math.round(frac*100)+'%';
+  document.getElementById('wi-margin-val').textContent=Math.round(margin*100)+'%';
+  var pts=data.grid[score];
+  var p=pts[0];
+  for(var i=1;i<pts.length;i++){if(Math.abs(pts[i].frac-frac)<Math.abs(p.frac-frac)){p=pts[i];}}
+  var per1t=p.incr/p.cost_tight,per1a=p.incr/p.cost_all;
+  document.getElementById('wi-out').innerHTML=
+    wiCard('Audiens',wiFmt(p.n,0),'member×campaign (8 campaign held-out)')+
+    wiCard('Incremental spend','$'+wiFmt(p.incr,0),'USD sepanjang window')+
+    wiCard('Biaya voucher','$'+wiFmt(p.cost_tight,0)+' / $'+wiFmt(p.cost_all,0),'ketat / konservatif')+
+    wiCard('Incremental per $1','$'+wiFmt(per1t,1)+' / $'+wiFmt(per1a,1),'ketat / konservatif')+
+    wiCard('Margin '+Math.round(margin*100)+'% per $1','+$'+wiFmt(margin*per1a-1,2),'batas konservatif (asumsi)')+
+    wiCard('Break-even margin',wiFmt(100/per1a,1)+'% / '+wiFmt(100/per1t,1)+'%','konservatif / ketat');
+}
+['wi-score','wi-frac','wi-margin'].forEach(function(id){
+  document.getElementById(id).addEventListener('input',wiUpdate);
+});
+wiUpdate();
 </script>
 </body>
 </html>

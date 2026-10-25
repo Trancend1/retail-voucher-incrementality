@@ -131,6 +131,49 @@ def test_pooled_meta_homogeneous_case():
     assert p["tau2"] == pytest.approx(0.0, abs=1e-9)
 
 
+# --- page 4: voucher efficiency ----------------------------------------------------
+
+
+def test_voucher_page_matches_registry(bundle):
+    """Scenario numbers pinned to the Phase 7 registry (AGENTS.md 2.10)."""
+    scen = {s["scenario"]: s for s in bundle["voucher"]["scenarios"]}
+    assert set(scen) == {
+        "blanket", "uplift top-2 decile", "uplift top-4 decile",
+        "RFM top-2 decile", "RFM top-4 decile",
+    }
+    assert scen["uplift top-2 decile"]["inc_per_dollar_tight"] == pytest.approx(232.2, abs=0.5)
+    assert scen["blanket"]["inc_per_dollar_tight"] == pytest.approx(90.4, abs=0.5)
+    assert scen["RFM top-2 decile"]["inc_per_dollar_tight"] == pytest.approx(61.7, abs=0.5)
+    assert scen["uplift top-2 decile"]["inc_per_dollar_all"] == pytest.approx(31.7, abs=0.3)
+    assert scen["blanket"]["inc_per_dollar_all"] == pytest.approx(12.3, abs=0.3)
+    layak = {s["scenario"]: s for s in bundle["voucher"]["scenarios_layak"]}
+    assert layak["uplift top-2 decile"]["inc_per_dollar_tight"] == pytest.approx(516.9, abs=1.0)
+    # directional lock: uplift beats blanket and RFM under both bounds
+    for col in ("inc_per_dollar_tight", "inc_per_dollar_all"):
+        up = scen["uplift top-2 decile"][col]
+        assert up > scen["blanket"][col] and up > scen["RFM top-2 decile"][col]
+
+
+def test_whatif_grid_invariants(bundle):
+    """Grid must come from the exact Phase 7 machinery and close at frac=1."""
+    wi = bundle["voucher"]["whatif"]
+    assert wi["fracs"][0] == 0.05 and wi["fracs"][-1] == 1.0
+    assert wi["fracs"] == sorted(wi["fracs"])
+    scen = {s["scenario"]: s for s in bundle["voucher"]["scenarios"]}
+    for label in ("uplift", "rfm"):
+        pts = wi["grid"][label]
+        assert len(pts) == 20
+        ns = [p["n"] for p in pts]
+        assert ns == sorted(ns)  # audience grows with fraction
+        for p in pts:
+            assert p["cost_all"] >= p["cost_tight"] > 0
+            assert p["incr"] > 0
+        # full coverage == blanket, regardless of score used for selection
+        assert pts[-1]["n"] == scen["blanket"]["n_targeted"]
+        assert pts[-1]["incr"] == pytest.approx(scen["blanket"]["incr_spend_total"], rel=0.001)
+        assert pts[-1]["cost_tight"] == pytest.approx(scen["blanket"]["cost_tight"], rel=0.001)
+
+
 # --- HTML deliverable --------------------------------------------------------------
 
 
@@ -145,8 +188,9 @@ def test_html_required_labels(doc):
         "break-even",
     ]:
         assert label in low, f"missing label: {label}"
-    assert doc.count("<section") == 3
-    assert doc.count('class="tab') == 3
+    assert doc.count("<section") == 4
+    assert doc.count('class="tab') == 4
+    assert "Voucher Efficiency" in doc
 
 
 def test_html_is_self_contained(doc):

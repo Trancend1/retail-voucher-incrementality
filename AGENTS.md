@@ -155,6 +155,16 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 
 ---
 
+### 2.11 Hasil terverifikasi Phase 8 sprint p8a — dashboard hal. 4 + star schema (2026-10-25)
+
+- **Dashboard 4 halaman penuh** (`outputs/dashboard.html`, 162 KB, tetap self-contained tanpa resource eksternal): hal. 4 *Voucher Efficiency* = KPI (per-$1 top-2 dua batas + CI, rasio vs blanket/RFM, margin 25% konservatif, break-even) + chart dua-panel per skenario + tabel sensitivitas + **widget what-if** (slider proporsi 5–100% & margin 5–40% + pilihan skor uplift/RFM; dihitung client-side dari grid precomputed 20 titik proporsi × 2 skor yang dibangun oleh mesin `scenario_core` Phase 7 — widget tidak mungkin beda dari `roi_scenarios`).
+- Verifikasi widget di browser (DOM audit + interaksi programatik): default (uplift, 20%, 25%) → $232,3/$31,7, margin 25% +$6,93, break-even 3,2%/0,4%; slider 100% + margin 15% → blanket $90,4/$12,3 +$0,85 8,1%/1,1%; RFM 20% → $61,7/$9,8 — semua cocok §2.10. Tanpa overflow horizontal; 4 section/4 tab; tanpa frasa terlarang; rebuild deterministik (test committed == build).
+- **Star schema** (`src/starschema.py` → `data/processed/star/`, 8 CSV, gitignored, rebuild `python -m src.starschema`): `dim_household` 2.500 (segmen + kuintil RFM + clv_decile 1–10), `dim_campaign` 30 (timeline + hasil DiD sebagai atribut + flag & alasan reliabilitas), `dim_category` 308 (grain komoditas + department via product.csv; flag kategori operator), `dim_week` 102, `fact_hh_week` 255.000, `fact_hh_campaign` 14.090 (panel evaluasi campaign held-out + skor + `uplift_decile` per campaign untuk slicer top-k), `fact_hh_category` 288.690, `scenario_roi` 10. **PK unik + FK 100% + row count dikunci test.**
+- **`powerbi/MODEL_MANIFEST.md` (committed)**: panduan build `.pbix` oleh user — urutan impor 8 CSV, 6 relasi many-to-one, measures DAX siap tempel (termasuk Uplift Δ berbobot overlap), layout 4 halaman, parameter what-if MarginParam, checklist QA gate, cara refresh. QA visual `outputs/dashboard.html` dipakai sebagai referensi angka.
+- Keputusan formal: DL-020.
+
+---
+
 ## 3. Jebakan data (baca sebelum menulis query pertama)
 
 
@@ -180,7 +190,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 - Notebook bernomor sesuai urutan phase; nama file stabil karena dirujuk dari README.
 - Kolom mentah `UPPER_CASE`; di layer processed dinormalisasi ke `snake_case` (`household_key`, `week_no`, `net_spend`, ...). Jangan campur dua gaya dalam satu tabel.
 - Semua fungsi random menerima `random_state`/`seed`; default `RANDOM_STATE = 42` di satu tempat.
-- Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini (16): `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`, `campaign_did_results`, `campaign_event_study`, `segments`, `segment_summary`, `x5_client_features`, `uplift_scores`, `uplift_eval_results`, `roi_costs`, `roi_scenarios`; bertambah per phase (targeting sample, dst.). Data eksternal (X5 ±740 MB) hidup di `data/external/` (gitignored), hanya turunan fiturnya yang jadi parquet.
+- Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini (16): `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`, `campaign_did_results`, `campaign_event_study`, `segments`, `segment_summary`, `x5_client_features`, `uplift_scores`, `uplift_eval_results`, `roi_costs`, `roi_scenarios`; bertambah per phase (targeting sample, dst.). Export star schema Power BI: 8 CSV di `data/processed/star/` + `scenario_roi` (rebuild `python -m src.starschema`). Data eksternal (X5 ±740 MB) hidup di `data/external/` (gitignored), hanya turunan fiturnya yang jadi parquet.
 - Deliverable dashboard MVP = `outputs/dashboard.html` (HTML self-contained, dibangun `src/dashboard.py`, deterministik; angka dikunci `tests/test_dashboard.py` — regenerasi wajib `python -m src.dashboard` agar committed == rebuild).
 - Setiap tabel hasil yang masuk dashboard harus punya kolom `n`, `ci_low`, `ci_high` (kalau estimasi) dan `reliability_flag` (kalau campaign).
 
@@ -190,7 +200,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 
 - Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`; path kernel diperbarui 2026-10-24 setelah repo pindah direktori).
 - Versi terverifikasi di mesin ini (2026-10-23) — core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`; modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`. `causalml` **tidak** dipasang — alternatifnya `econml`.
-- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 95 test atas data asli dalam 10 modul (panel, clv, cohorts, did, segments, dashboard, uplift_eval, x5, uplift_obs, simulate; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
+- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 102 test atas data asli dalam 11 modul (panel, clv, cohorts, did, segments, dashboard, uplift_eval, x5, uplift_obs, simulate, starschema; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
 - `setuptools` ditahan `<81` karena `lifetimes 0.11.3` masih impor `pkg_resources`.
 - Git: branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`.
 - File requirements: `requirements.txt` (inti), `requirements-modeling.txt` (Phase 2/6), `requirements-dev.txt` (pytest), `requirements.lock.txt` (freeze persis). **Perintah setup lengkap ada di README — jangan diduplikasi di sini.** Cek sehat: `python -m pip check` → "No broken requirements found."
@@ -295,8 +305,8 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Status & utang terbuka
 
-**Status:** Analisis inti tuntas 2026-10-25: Phase 0–5 DoD penuh + dashboard hal. 1–3 + README final (§2.2–§2.7), Phase 6 uplift dua tahap (§2.8–§2.9), **Phase 7 simulasi ROI selesai** (§2.10): uplift top-2 decile $232/$1 [124; 402] batas ketat ≈ 2,6× blanket, stabil di dua batas biaya; margin 25% + batas konservatif +$6,93 per $1; break-even ≤8,1%. 95/95 test hijau (10 modul), 8 notebook ter-render, `main` sinkron dengan remote. Status resmi per phase: README (SOT status).
+**Status:** Analisis inti tuntas (P0–P7, §2.2–§2.10). **Phase 8 berjalan**: p8a selesai (§2.11) — dashboard **4 halaman penuh** (`outputs/dashboard.html`; hal. 4 Voucher Efficiency + what-if widget), star schema 8 CSV + invariant terkunci, `powerbi/MODEL_MANIFEST.md` (panduan build .pbix oleh user). 102/102 test hijau (11 modul), 8 notebook ter-render, `main` sinkron dengan remote. Tersisa: p8b (xlsx targeting + playbook + slide mapping + README final — agent) dan p8c (assemblasi .pbix — user, dipandu manifest). Status resmi per fase: README (SOT status).
 
 **Utang terbuka:** tidak ada yang memblokir. Halaman dashboard 4 (Voucher Efficiency) + what-if menunggu angka Phase 7; Power BI + star schema ditunda ke Phase 8 penuh (DL-016). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
 
-**Berikutnya:** Phase 8 penuh — dashboard hal. 4 (Voucher Efficiency, what-if dari `roi_scenarios.parquet` via regenerasi `src/dashboard.py`), star schema + export Power BI (DL-016), playbook 1 halaman, slide re-run, `targeting_sample.xlsx`.
+**Berikutnya:** p8b — `targeting_sample.xlsx` + `outputs/playbook.md` + `outputs/rerun_slide.md` + README final (semuanya agent). Lalu p8c — assemblasi `.pbix` oleh user mengikuti `powerbi/MODEL_MANIFEST.md`; agent me-review screenshot terhadap checklist gate.

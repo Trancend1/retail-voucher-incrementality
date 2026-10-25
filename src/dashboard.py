@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import html
 import io
+import json
 import math
 from pathlib import Path
 
@@ -23,6 +24,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from src.simulate import scenario_core, select_mask
 
 REPO = Path(__file__).resolve().parent.parent
 PROCESSED = REPO / "data" / "processed"
@@ -293,7 +296,63 @@ def build_bundle(processed_dir: Path = PROCESSED) -> dict:
         "n_layak": int(len(layak)),
     }
 
-    return {"overview": overview, "segments": segments, "campaigns": campaigns}
+    # --- page 4: voucher efficiency (Phase 7) --------------------------------------
+    roi_scen = pd.read_parquet(processed_dir / "roi_scenarios.parquet")
+    from src.simulate import load_roi_inputs
+
+    scores_df = load_roi_inputs().copy()
+    scores_df["_camp_code"] = pd.factorize(scores_df["campaign_id"])[0]
+
+    def _scenario_rows(sub: pd.DataFrame) -> list[dict]:
+        rows = []
+        for r in sub.itertuples():
+            rows.append(
+                {
+                    "scenario": str(r.scenario),
+                    "n_targeted": _r(r.n_targeted, 0),
+                    "uplift_per_member_week": _r(r.uplift_per_member_week, 2),
+                    "incr_spend_total": _r(r.incr_spend_total, 0),
+                    "cost_tight": _r(r.cost_tight, 0),
+                    "cost_all": _r(r.cost_all, 0),
+                    "inc_per_dollar_tight": _r(r.inc_per_dollar_tight, 1),
+                    "inc_per_dollar_tight_ci_low": _r(r.inc_per_dollar_tight_ci_low, 1),
+                    "inc_per_dollar_tight_ci_high": _r(r.inc_per_dollar_tight_ci_high, 1),
+                    "inc_per_dollar_all": _r(r.inc_per_dollar_all, 1),
+                    "breakeven_margin_tight": _r(r.breakeven_margin_tight, 4),
+                }
+            )
+        return rows
+
+    # what-if grid: targeting fraction x score, metrics via the exact Phase 7
+    # scenario machinery so the widget can never disagree with roi_scenarios
+    fracs = [round(0.05 * i, 2) for i in range(1, 21)]
+    whatif_grid: dict[str, list[dict]] = {}
+    for label, col in (("uplift", "score_x"), ("rfm", "score_rfm")):
+        points = []
+        for f in fracs:
+            core = scenario_core(scores_df, select_mask(scores_df, col, f))
+            points.append(
+                {
+                    "frac": f,
+                    "n": _r(core["n_targeted"], 0),
+                    "incr": _r(core["incr_spend_total"], 0),
+                    "cost_tight": _r(core["cost_tight"], 0),
+                    "cost_all": _r(core["cost_all"], 0),
+                }
+            )
+        whatif_grid[label] = points
+
+    voucher = {
+        "scenarios": _scenario_rows(roi_scen[roi_scen["campaign_set"] == "all"]),
+        "scenarios_layak": _scenario_rows(roi_scen[roi_scen["campaign_set"] == "layak"]),
+        "whatif": {
+            "fracs": fracs,
+            "grid": whatif_grid,
+            "score_labels": {"uplift": "skor uplift (X-learner)", "rfm": "RFM (belanja pra-campaign)"},
+        },
+    }
+
+    return {"overview": overview, "segments": segments, "campaigns": campaigns, "voucher": voucher}
 
 
 # --- charts (inline SVG) ----------------------------------------------------------
@@ -420,6 +479,39 @@ def _chart_forest(bundle: dict) -> str:
         f"{bundle['campaigns']['n_layak']} lolos semua gate (observasional)"
     )
     ax.legend(fontsize=8, loc="lower right")
+    return _svg(fig)
+
+
+def _chart_voucher(bundle: dict) -> str:
+    scen = bundle["voucher"]["scenarios"]
+    names = [s["scenario"] for s in scen]
+    short = [n.replace(" decile", "").replace("uplift", "uplift").replace("RFM", "RFM") for n in names]
+    tight = [s["inc_per_dollar_tight"] for s in scen]
+    allc = [s["inc_per_dollar_all"] for s in scen]
+    ci = np.array(
+        [[s["inc_per_dollar_tight"] - s["inc_per_dollar_tight_ci_low"],
+          s["inc_per_dollar_tight_ci_high"] - s["inc_per_dollar_tight"]] for s in scen]
+    ).T
+    colors = ["#475569", "#0f766e", "#14b8a6", "#d97706", "#f59e0b"]
+    fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.2), sharex=True)
+    x = np.arange(len(scen))
+    for ax, vals, err, title in [
+        (axes[0], tight, ci, "batas ketat (whisker = 95% CI)"),
+        (axes[1], allc, None, "batas konservatif (semua kupon)"),
+    ]:
+        ax.bar(x, vals, color=colors, alpha=0.9)
+        if err is not None:
+            ax.errorbar(x, vals, yerr=err, fmt="none", ecolor="#334155", lw=1, capsize=2)
+        for xi, v in zip(x, vals):
+            ax.annotate(f"{v:,.0f}", (xi, v), ha="center", va="bottom", fontsize=7.5)
+        ax.set_xticks(x, short, rotation=20, ha="right", fontsize=7.5)
+        ax.set_title(title, fontsize=9)
+        ax.set_ylabel("USD incremental / $1 voucher")
+    fig.suptitle(
+        f"Incremental spend per $1 voucher per skenario — 8 campaign akhir held-out "
+        f"(n=14.090 baris household×campaign; horizon window; observasional)",
+        fontsize=9.5, y=1.04,
+    )
     return _svg(fig)
 
 
@@ -580,7 +672,76 @@ def render_html(bundle: dict) -> str:
 {_note("Campaign tanpa estimasi: n treated &lt; 100 (laporkan agregat), overlap parah (15 — excluded), atau window terpotong akhir data (24). Signifikansi = BH q&lt;0,05 atas 20 campaign terestimasi. n &lt; 30 per sel tidak dilaporkan.")}
 """
 
-    body_pages = [("overview", "Member Overview", page1), ("segments", "Segment Deep Dive", page2), ("campaigns", "Campaign Lift", page3)]
+    # --- page 4: voucher efficiency -------------------------------------------------
+    vc = bundle["voucher"]
+    scen = {s["scenario"]: s for s in vc["scenarios"]}
+    top2 = scen["uplift top-2 decile"]
+    blanket = scen["blanket"]
+    rfm2 = scen["RFM top-2 decile"]
+    p4_cards = _kpis(
+        [
+            ("Uplift top-2 decile", f"${fmt_id(top2['inc_per_dollar_tight'], 0)}",
+             f"95% CI [{fmt_id(top2['inc_per_dollar_tight_ci_low'], 0)}; {fmt_id(top2['inc_per_dollar_tight_ci_high'], 0)}] · batas ketat"),
+            ("vs blanket / RFM", f"{fmt_id(top2['inc_per_dollar_tight'] / blanket['inc_per_dollar_tight'], 1)}× / "
+             f"{fmt_id(top2['inc_per_dollar_tight'] / rfm2['inc_per_dollar_tight'], 1)}×", "batas ketat; urutan stabil di 2 batas & subset layak"),
+            ("Margin 25% + konservatif", f"+${fmt_id(0.25 * top2['incr_spend_total'] / top2['cost_all'] - 1, 2)}",
+             f"incremental margin per $1 (blanket +${fmt_id(0.25 * blanket['incr_spend_total'] / blanket['cost_all'] - 1, 2)})"),
+            ("Break-even margin", f"{fmt_pct(top2['breakeven_margin_tight'] * 100, 1)} ketat · {fmt_pct(100 / top2['inc_per_dollar_all'], 1)} konservatif",
+             "margin minimum agar margin per $1 ≥ 0"),
+        ]
+    )
+    sens_rows = []
+    for s in vc["scenarios"]:
+        sens_rows.append(
+            [
+                html.escape(s["scenario"]),
+                fmt_id(s["n_targeted"], 0),
+                f"${fmt_id(s['cost_tight'], 0)} / ${fmt_id(s['cost_all'], 0)}",
+                f"${fmt_id(s['inc_per_dollar_tight'], 1)} [{fmt_id(s['inc_per_dollar_tight_ci_low'], 0)}; {fmt_id(s['inc_per_dollar_tight_ci_high'], 0)}]",
+                f"${fmt_id(s['inc_per_dollar_all'], 1)}",
+                f"${fmt_id(0.15 * s['incr_spend_total'] / s['cost_all'] - 1, 2)} / ${fmt_id(0.25 * s['incr_spend_total'] / s['cost_all'] - 1, 2)} / ${fmt_id(0.35 * s['incr_spend_total'] / s['cost_all'] - 1, 2)}",
+                fmt_pct(s['breakeven_margin_tight'] * 100, 1) + " / " + fmt_pct(100 * s['cost_all'] / s['incr_spend_total'], 1),
+            ]
+        )
+    whatif_json = json.dumps(vc["whatif"], ensure_ascii=False, separators=(",", ":"))
+    page4 = f"""
+<h2>Voucher Efficiency</h2>
+{_note("<b>Observational — di bawah asumsi unconfoundedness.</b> Simulasi mengulang 8 campaign akhir held-out; belanja incremental dihitung horizon window (uplift $/minggu × panjang window × audiens) versus biaya kupon terobservasi dalam <b>dua batas atribusi</b> (ketat = kupon produk daftar campaign; konservatif = semua kupon). Margin 15/25/35% adalah <b>parameter asumsi, bukan data</b>. CI = cluster bootstrap by household; keanggotaan audiens tetap.")}
+{p4_cards}
+{_wrap_svg(_chart_voucher(bundle))}
+<h3>Tabel skenario</h3>
+{_table(
+    ["skenario", "n target", "biaya voucher (ketat / konservatif)", "per $1 — ketat [95% CI]", "per $1 — konservatif", "margin per $1 konservatif (15/25/35%)", "break-even margin (ketat / konservatif)"],
+    sens_rows,
+)}
+<h3>What-if — hitung sendiri dengan parameter Anda</h3>
+<div class="widget">
+  <div class="controls">
+    <label>Skor targeting
+      <select id="wi-score">
+        <option value="uplift">skor uplift (X-learner)</option>
+        <option value="rfm">RFM (belanja pra-campaign)</option>
+      </select>
+    </label>
+    <label>Proporsi audiens ditarget: <span id="wi-frac-val">20%</span>
+      <input type="range" id="wi-frac" min="5" max="100" step="5" value="20">
+    </label>
+    <label>Margin (asumsi): <span id="wi-margin-val">25%</span>
+      <input type="range" id="wi-margin" min="5" max="40" step="1" value="25">
+    </label>
+  </div>
+  <div class="cards" id="wi-out"></div>
+  <p class="note">Grid precomputed dari mesin simulasi Phase 7 pada 20 titik proporsi (5–100%); slider memilih titik terdekat. Pesan tetap: margin = parameter asumsi; angka efek estimasi observational, bukan janji hasil — keputusan produksi perlu holdout eksperimen.</p>
+</div>
+<script type="application/json" id="whatif-data">{whatif_json}</script>
+"""
+
+    body_pages = [
+        ("overview", "Member Overview", page1),
+        ("segments", "Segment Deep Dive", page2),
+        ("campaigns", "Campaign Lift", page3),
+        ("voucher", "Voucher Efficiency", page4),
+    ]
     nav = "".join(
         f'<button class="tab{" active" if i == 0 else ""}" data-target="{pid}">{title}</button>'
         for i, (pid, title, _) in enumerate(body_pages)
@@ -640,6 +801,10 @@ h3{font-size:13.5px;margin:22px 0 8px;color:#334155}
 .tbl th,.tbl td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .tbl th{background:#f1f5f9;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#334155}
 .tbl tr:last-child td{border-bottom:none}
+.widget{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0}
+.controls{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:6px}
+.controls label{display:flex;flex-direction:column;font-size:12px;color:#334155;gap:4px}
+.controls select,.controls input[type=range]{accent-color:#0f766e}
 .flag{display:inline-block;font-weight:600;white-space:nowrap}
 .reason{display:block;color:var(--mut);font-size:10.5px;max-width:260px}
 .warn{color:#b45309;font-weight:600}
@@ -656,6 +821,31 @@ tabs.forEach(function(t){t.addEventListener('click',function(){
   document.getElementById(t.dataset.target).classList.add('visible');
   window.scrollTo({top:0});
 });});
+function wiCard(l,v,s){return '<div class="card"><div class="kpi-label">'+l+'</div><div class="kpi-value">'+v+'</div><div class="kpi-sub">'+s+'</div></div>';}
+function wiFmt(x,d){return x.toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function wiUpdate(){
+  var data=JSON.parse(document.getElementById('whatif-data').textContent);
+  var score=document.getElementById('wi-score').value;
+  var frac=+document.getElementById('wi-frac').value/100;
+  var margin=+document.getElementById('wi-margin').value/100;
+  document.getElementById('wi-frac-val').textContent=Math.round(frac*100)+'%';
+  document.getElementById('wi-margin-val').textContent=Math.round(margin*100)+'%';
+  var pts=data.grid[score];
+  var p=pts[0];
+  for(var i=1;i<pts.length;i++){if(Math.abs(pts[i].frac-frac)<Math.abs(p.frac-frac)){p=pts[i];}}
+  var per1t=p.incr/p.cost_tight,per1a=p.incr/p.cost_all;
+  document.getElementById('wi-out').innerHTML=
+    wiCard('Audiens',wiFmt(p.n,0),'member×campaign (8 campaign held-out)')+
+    wiCard('Incremental spend','$'+wiFmt(p.incr,0),'USD sepanjang window')+
+    wiCard('Biaya voucher','$'+wiFmt(p.cost_tight,0)+' / $'+wiFmt(p.cost_all,0),'ketat / konservatif')+
+    wiCard('Incremental per $1','$'+wiFmt(per1t,1)+' / $'+wiFmt(per1a,1),'ketat / konservatif')+
+    wiCard('Margin '+Math.round(margin*100)+'% per $1','+$'+wiFmt(margin*per1a-1,2),'batas konservatif (asumsi)')+
+    wiCard('Break-even margin',wiFmt(100/per1a,1)+'% / '+wiFmt(100/per1t,1)+'%','konservatif / ketat');
+}
+['wi-score','wi-frac','wi-margin'].forEach(function(id){
+  document.getElementById(id).addEventListener('input',wiUpdate);
+});
+wiUpdate();
 """
 
 _HTML_SHELL = """<!DOCTYPE html>
@@ -663,17 +853,17 @@ _HTML_SHELL = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Retail Voucher Incrementality — Dashboard MVP</title>
+<title>Retail Voucher Incrementality — Dashboard</title>
 <style>{css}</style>
 </head>
 <body>
 <header>
-  <h1>Retail Voucher Incrementality — Dashboard MVP</h1>
+  <h1>Retail Voucher Incrementality — Dashboard</h1>
   <p class="sub">Panel Dunnhumby Complete Journey (2.500 member, 102 minggu, USD net). Efek campaign bersifat <b>observational — di bawah asumsi unconfoundedness</b>; whitespace kategori adalah <b>proxy dalam satu retailer</b>; margin adalah parameter asumsi; horizon nilai member selalu <b>CLV 52 minggu</b>. Angka dibangun dari parquet fase analisis dan dikunci suite test.</p>
   <nav>{nav}</nav>
 </header>
 {sections}
-<footer>Sumber: data/processed/*.parquet (hh_week, hh_clv, segments, segment_summary, hh_whitespace, campaign_did_results) — dibangun oleh <code>src/dashboard.py</code>; angka terkunci <code>tests/test_dashboard.py</code>. Estimasi menyertakan n dan 95% CI; sel dengan n &lt; 30 tidak dilaporkan; reliability_flag ditampilkan beserta alasannya, tidak disembunyikan.</footer>
+<footer>Sumber: data/processed/*.parquet (hh_week, hh_clv, segments, segment_summary, hh_whitespace, campaign_did_results, uplift_scores, roi_scenarios) — dibangun oleh <code>src/dashboard.py</code>; angka terkunci <code>tests/test_dashboard.py</code>. Estimasi menyertakan n dan 95% CI; sel dengan n &lt; 30 tidak dilaporkan; reliability_flag ditampilkan beserta alasannya, tidak disembunyikan. Halaman 4 (what-if) menghitung dari grid precomputed Phase 7 — margin adalah parameter asumsi.</footer>
 <script>{js}</script>
 </body>
 </html>

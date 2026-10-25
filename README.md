@@ -25,9 +25,9 @@ Analisis efektivitas voucher pada panel belanja Dunnhumby Complete Journey — 2
 | 5 | Segmentasi K-means + stabilitas ARI | ✅ selesai — 3 segmen efektif (k=5 core-fit + konsolidasi); ARI 0,646; churn threshold gap p95=5 mgg dari data |
 | 6 | Uplift dua tahap (randomized + observational) | ✅ selesai — Stage 1 X5 randomized (decile-1 +12,0 pp ≈ 3× ATE); Stage 2 observational Dunnhumby: X-learner decile-1 **+$14,7/mgg [9,7; 20,2]** ≈ 2,3× ATE acak, gain@20% +$11,32/member vs RFM naif +$8,08, placebo lolos; T-learner tidak konsisten & decile tengah tidak monoton — diungkap; semua berlabel observational |
 | 7 | Simulasi ROI voucher (3 skenario + sensitivitas) | ✅ selesai — pada 8 campaign held-out: **uplift top-2 decile $232 incremental spend per $1 voucher [124; 402]** (batas ketat) ≈ 2,6× blanket, 3,8× RFM top-2; urutan stabil di batas konservatif ($31,7 vs $12,3 vs $9,8) dan subset lolos-gate; margin 25% + batas konservatif → +$6,93 margin per $1, break-even ≤8,1%; margin = parameter 15/25/35%; biaya dari `COUPON_DISC` observasi; observational |
-| 8 | Dashboard 4 halaman + playbook + slide re-run | sebagian — dashboard hal. 1–3 ✅ ([outputs/dashboard.html](outputs/dashboard.html), HTML self-contained); hal. 4 + playbook + slide + Excel setelah Phase 7 |
+| 8 | Dashboard 4 halaman + playbook + slide re-run | sebagian — **dashboard 4 halaman ✅** ([outputs/dashboard.html](outputs/dashboard.html): hal. 4 Voucher Efficiency + what-if margin/top-k interaktif) + **star schema ✅** (8 CSV + [panduan build Power BI](powerbi/MODEL_MANIFEST.md)); `.pbix` dirakit manual di Power BI Desktop mengikuti manifest; playbook + slide + Excel menyusul (p8b) |
 
-**Cut line MVP: tercapai (2026-10-25).** Phase 0–5 tuntas + dashboard halaman 1–3 + README final. Dashboard MVP: [outputs/dashboard.html](outputs/dashboard.html) — Member Overview, Segment Deep Dive, Campaign Lift; satu file self-contained (tanpa dependensi eksternal), flag reliabilitas campaign tampil beserta alasannya, dibangun deterministik dari parquet analisis dan dikunci suite test. Phase 6–7 (uplift, ROI) adalah lapisan pembeda berikutnya, lalu Phase 8 penuh (halaman 4 + playbook + slide + Excel + star schema).
+**Cut line MVP: tercapai (2026-10-25).** Phase 0–5 tuntas + dashboard + README final. Dashboard kini **4 halaman penuh**: [outputs/dashboard.html](outputs/dashboard.html) — Member Overview, Segment Deep Dive, Campaign Lift, dan Voucher Efficiency dengan **what-if interaktif** (slider margin & proporsi targeting, dihitung dari grid precomputed simulasi ROI); satu file self-contained (tanpa dependensi eksternal), flag reliabilitas campaign tampil beserta alasannya, dibangun deterministik dari parquet analisis dan dikunci suite test. Fase analisis P6–P7 juga tuntas; Phase 8 (`.pbix` via [manifest](powerbi/MODEL_MANIFEST.md), playbook, slide, Excel) menyusul.
 
 ## Asumsi utama
 
@@ -76,7 +76,7 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 
 ## Data
 
-Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Data eksternal Stage 1 uplift (X5 RetailHero, ±740 MB via scikit-uplift) di-cache di `data/external/` — juga tidak di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai suite test di `tests/` (10 modul: panel, CLV, cohort, DiD, segment, dashboard, uplift randomized, X5, uplift observational, simulasi ROI); registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort, hasil DiD + event study, segmen + ringkasan segmen, fitur client X5, skor uplift campaign akhir, biaya kupon per household, skenario ROI).
+Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Data eksternal Stage 1 uplift (X5 RetailHero, ±740 MB via scikit-uplift) di-cache di `data/external/` — juga tidak di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai suite test di `tests/` (11 modul: panel, CLV, cohort, DiD, segment, dashboard, uplift randomized, X5, uplift observational, simulasi ROI, star schema); registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort, hasil DiD + event study, segmen + ringkasan segmen, fitur client X5, skor uplift campaign akhir, biaya kupon per household, skenario ROI) plus **star schema 8 CSV** untuk Power BI di `data/processed/star/` (rebuild `python -m src.starschema`).
 
 ## Struktur repo
 
@@ -88,8 +88,8 @@ Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data
   src/                # features, clv, cohorts, did, segments, dashboard, x5, uplift_learners, uplift_eval, uplift_obs, simulate
   tests/              # assertion kualitas data & invariant hasil
   conftest.py         # session fixtures dari data asli (dibangun sekali per run)
-  powerbi/            # Phase 8 penuh: .pbix + star schema export
-  outputs/            # dashboard.html (MVP) — targeting_sample.xlsx, playbook.md menyusul
+  powerbi/            # MODEL_MANIFEST.md (panduan build .pbix) — .pbix dirakit manual
+  outputs/            # dashboard.html (4 halaman) — targeting_sample.xlsx, playbook.md, rerun_slide.md menyusul
 ```
 
 ## Setup
