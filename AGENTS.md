@@ -165,6 +165,16 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 
 ---
 
+### 2.12 Hasil terverifikasi Phase 8 sprint p8b — targeting xlsx + playbook + slide (2026-10-25)
+
+- **`outputs/targeting_sample.xlsx`** (committed, dibangun `src/targeting.py`): sheet *output* **2.498 member** (satu baris per member ter-skorku — skor X-learner dari campaign held-out terbaru; 2 member tak pernah masuk pool evaluasi) dengan kolom persis spec §4.4: `household_key, segment, clv_decile, uplift_score, uplift_decile, promo_dependence, top_whitespace_category, recommended_offer, voucher_cap_usd, include_flag`; sheet *asumsi* 11 baris (sumber skor, definisi decile, aturan offer, cap, label). `include_flag` = top-2 decile → **503 member (20,1%)**; voucher cap **$18** (p90 biaya kupon terobservasi per treated, data-anchored); offer matrix deterministik (rentan-hilang → aktivasi ulang; promo-dependent decile≤4 → benefit non-diskon; top-2 → voucher whitespace; mesin pertumbuhan → pertahankan); whitespace top-1 tanpa NaN, kategori operator dikecualikan.
+- **`outputs/playbook.md`**: aturan targeting (top-2 decile $232/$1 [124; 402] vs blanket $90 vs RFM $62; RFM bukan proxy respons), offer matrix 3 segmen + top-2, guardrail (cap $18; **stop rule incremental margin per $1 < 1**; ekonomi margin 25% konservatif +$6,9), **holdout 10% stratified per segmen**, cadence per-campaign/kuartalan/tahunan, larangan & label (frasa terlarang TIDAK dikutip — test melarang kemunculannya).
+- **`outputs/rerun_slide.md`**: mapping 13 baris Dunnhumby → My Super Indo (3 baris "(tidak ada)": margin, holdout flag, transaksi non-member; 1 baris "lebih baik": tanggal kirim per member) + 8 definisi terkunci re-run (net_spend, minggu retailer, kontrol overlap, fitur pre, dua batas biaya, ambang churn p95, split waktu, horizon window) + klaim yang tidak dijanjikan.
+- Test: 4 test baru (`tests/test_targeting.py`) — bentuk & aturan list (2.498 unik, include 20,1%, cap $18, prioritas offer segmen), struktur xlsx 2 sheet + isi asumsi, konten wajib playbook, tabel mapping slide; frasa terlarang dipindai di semua artefak.
+- Keputusan formal: DL-021.
+
+---
+
 ## 3. Jebakan data (baca sebelum menulis query pertama)
 
 
@@ -192,6 +202,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 - Semua fungsi random menerima `random_state`/`seed`; default `RANDOM_STATE = 42` di satu tempat.
 - Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini (16): `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`, `campaign_did_results`, `campaign_event_study`, `segments`, `segment_summary`, `x5_client_features`, `uplift_scores`, `uplift_eval_results`, `roi_costs`, `roi_scenarios`; bertambah per phase (targeting sample, dst.). Export star schema Power BI: 8 CSV di `data/processed/star/` + `scenario_roi` (rebuild `python -m src.starschema`). Data eksternal (X5 ±740 MB) hidup di `data/external/` (gitignored), hanya turunan fiturnya yang jadi parquet.
 - Deliverable dashboard MVP = `outputs/dashboard.html` (HTML self-contained, dibangun `src/dashboard.py`, deterministik; angka dikunci `tests/test_dashboard.py` — regenerasi wajib `python -m src.dashboard` agar committed == rebuild).
+- Deliverable `outputs/`: `dashboard.html` (4 halaman), `targeting_sample.xlsx` (regenerasi `python -m src.targeting`), `playbook.md`, `rerun_slide.md` — semua committed, angka dari parquet terverifikasi; star schema CSV lokal di `data/processed/star/`.
 - Setiap tabel hasil yang masuk dashboard harus punya kolom `n`, `ci_low`, `ci_high` (kalau estimasi) dan `reliability_flag` (kalau campaign).
 
 ---
@@ -200,7 +211,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 
 - Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`; path kernel diperbarui 2026-10-24 setelah repo pindah direktori).
 - Versi terverifikasi di mesin ini (2026-10-23) — core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`; modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`. `causalml` **tidak** dipasang — alternatifnya `econml`.
-- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 102 test atas data asli dalam 11 modul (panel, clv, cohorts, did, segments, dashboard, uplift_eval, x5, uplift_obs, simulate, starschema; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
+- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 106 test atas data asli dalam 12 modul (panel, clv, cohorts, did, segments, dashboard, uplift_eval, x5, uplift_obs, simulate, starschema, targeting; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
 - `setuptools` ditahan `<81` karena `lifetimes 0.11.3` masih impor `pkg_resources`.
 - Git: branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`.
 - File requirements: `requirements.txt` (inti), `requirements-modeling.txt` (Phase 2/6), `requirements-dev.txt` (pytest), `requirements.lock.txt` (freeze persis). **Perintah setup lengkap ada di README — jangan diduplikasi di sini.** Cek sehat: `python -m pip check` → "No broken requirements found."
@@ -305,8 +316,8 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Status & utang terbuka
 
-**Status:** Analisis inti tuntas (P0–P7, §2.2–§2.10). **Phase 8 berjalan**: p8a selesai (§2.11) — dashboard **4 halaman penuh** (`outputs/dashboard.html`; hal. 4 Voucher Efficiency + what-if widget), star schema 8 CSV + invariant terkunci, `powerbi/MODEL_MANIFEST.md` (panduan build .pbix oleh user). 102/102 test hijau (11 modul), 8 notebook ter-render, `main` sinkron dengan remote. Tersisa: p8b (xlsx targeting + playbook + slide mapping + README final — agent) dan p8c (assemblasi .pbix — user, dipandu manifest). Status resmi per fase: README (SOT status).
+**Status:** Analisis inti tuntas (P0–P7, §2.2–§2.10). **Phase 8: p8a + p8b selesai** — dashboard 4 halaman + what-if (§2.11), star schema + manifest Power BI, `targeting_sample.xlsx` (2.498 member) + `playbook.md` + `rerun_slide.md` (§2.12), README final dengan bagian deliverable. 106/106 test hijau (12 modul), 8 notebook ter-render, `main` sinkron dengan remote. Tersisa satu langkah: **p8c — user merakit `.pbix`** mengikuti `powerbi/MODEL_MANIFEST.md`; agent me-review screenshot terhadap checklist gate. Status resmi per fase: README (SOT status).
 
 **Utang terbuka:** tidak ada yang memblokir. Halaman dashboard 4 (Voucher Efficiency) + what-if menunggu angka Phase 7; Power BI + star schema ditunda ke Phase 8 penuh (DL-016). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
 
-**Berikutnya:** p8b — `targeting_sample.xlsx` + `outputs/playbook.md` + `outputs/rerun_slide.md` + README final (semuanya agent). Lalu p8c — assemblasi `.pbix` oleh user mengikuti `powerbi/MODEL_MANIFEST.md`; agent me-review screenshot terhadap checklist gate.
+**Berikutnya:** p8c (user) — merakit `.pbix` di Power BI Desktop mengikuti `powerbi/MODEL_MANIFEST.md` (impor 8 CSV → relasi → DAX → 4 halaman → QA checklist → commit ke `powerbi/`); kirim screenshot ke agent untuk review gate. Setelah itu proyek tuntas penuh.

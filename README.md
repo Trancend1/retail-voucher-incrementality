@@ -25,9 +25,17 @@ Analisis efektivitas voucher pada panel belanja Dunnhumby Complete Journey — 2
 | 5 | Segmentasi K-means + stabilitas ARI | ✅ selesai — 3 segmen efektif (k=5 core-fit + konsolidasi); ARI 0,646; churn threshold gap p95=5 mgg dari data |
 | 6 | Uplift dua tahap (randomized + observational) | ✅ selesai — Stage 1 X5 randomized (decile-1 +12,0 pp ≈ 3× ATE); Stage 2 observational Dunnhumby: X-learner decile-1 **+$14,7/mgg [9,7; 20,2]** ≈ 2,3× ATE acak, gain@20% +$11,32/member vs RFM naif +$8,08, placebo lolos; T-learner tidak konsisten & decile tengah tidak monoton — diungkap; semua berlabel observational |
 | 7 | Simulasi ROI voucher (3 skenario + sensitivitas) | ✅ selesai — pada 8 campaign held-out: **uplift top-2 decile $232 incremental spend per $1 voucher [124; 402]** (batas ketat) ≈ 2,6× blanket, 3,8× RFM top-2; urutan stabil di batas konservatif ($31,7 vs $12,3 vs $9,8) dan subset lolos-gate; margin 25% + batas konservatif → +$6,93 margin per $1, break-even ≤8,1%; margin = parameter 15/25/35%; biaya dari `COUPON_DISC` observasi; observational |
-| 8 | Dashboard 4 halaman + playbook + slide re-run | sebagian — **dashboard 4 halaman ✅** ([outputs/dashboard.html](outputs/dashboard.html): hal. 4 Voucher Efficiency + what-if margin/top-k interaktif) + **star schema ✅** (8 CSV + [panduan build Power BI](powerbi/MODEL_MANIFEST.md)); `.pbix` dirakit manual di Power BI Desktop mengikuti manifest; playbook + slide + Excel menyusul (p8b) |
+| 8 | Dashboard 4 halaman + playbook + slide re-run | sebagian — **dashboard 4 halaman ✅** + **star schema ✅** + **targeting xlsx ✅** + **playbook ✅** + **slide re-run ✅** (semua di bawah); tersisa assemblasi `.pbix` manual di Power BI Desktop mengikuti [MODEL_MANIFEST.md](powerbi/MODEL_MANIFEST.md) |
 
 **Cut line MVP: tercapai (2026-10-25).** Phase 0–5 tuntas + dashboard + README final. Dashboard kini **4 halaman penuh**: [outputs/dashboard.html](outputs/dashboard.html) — Member Overview, Segment Deep Dive, Campaign Lift, dan Voucher Efficiency dengan **what-if interaktif** (slider margin & proporsi targeting, dihitung dari grid precomputed simulasi ROI); satu file self-contained (tanpa dependensi eksternal), flag reliabilitas campaign tampil beserta alasannya, dibangun deterministik dari parquet analisis dan dikunci suite test. Fase analisis P6–P7 juga tuntas; Phase 8 (`.pbix` via [manifest](powerbi/MODEL_MANIFEST.md), playbook, slide, Excel) menyusul.
+
+**Deliverable lengkap:**
+
+- [outputs/dashboard.html](outputs/dashboard.html) — dashboard 4 halaman, self-contained, angka terkunci test.
+- [outputs/targeting_sample.xlsx](outputs/targeting_sample.xlsx) — list targeting per member (2.498 baris: segmen, decile uplift & CLV, offer, cap voucher, `include_flag`) + sheet asumsi.
+- [outputs/playbook.md](outputs/playbook.md) — playbook 1 halaman: aturan targeting, offer matrix per segmen, guardrail budget (cap $18; stop rule incremental margin per $1 < 1), holdout 10%, cadence evaluasi.
+- [outputs/rerun_slide.md](outputs/rerun_slide.md) — slide re-run: mapping data Dunnhumby → My Super Indo, termasuk data yang harus disediakan (margin, holdout flag, transaksi non-member).
+- [powerbi/MODEL_MANIFEST.md](powerbi/MODEL_MANIFEST.md) — panduan merakit `.pbix` dari star schema (`python -m src.starschema`).
 
 ## Asumsi utama
 
