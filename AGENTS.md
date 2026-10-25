@@ -108,6 +108,14 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 - Churn dari data: gap p95 = **5 minggu** (14,6% member ter-flag); rasio H2/H1 p10 = 0,419 (10,0% dropping).
 - Whitespace utama (COUPON/MISC ITEMS dikecualikan, temuan §2.4): seg1 BEEF ($441/member), seg2 BEERS/ALES, seg3 BEEF; aksi deterministik per segmen (aktivasi ulang / benefit non-diskon / dorong whitespace).
 
+### 2.7 Hasil terverifikasi — dashboard MVP halaman 1–3 (2026-10-25, tutup cut line MVP)
+
+- Deliverable: `outputs/dashboard.html` — **satu file HTML self-contained 134 KB** (chart SVG inline, tanpa resource eksternal — diuji; tab Member Overview / Segment Deep Dive / Campaign Lift). Dibangun `python -m src.dashboard` dari parquet fase analisis; **deterministik** (rebuild identik byte-for-byte, dikunci test `test_committed_dashboard_is_current`).
+- Format decision: DL-016 (HTML statis; Power BI + star schema tetap Phase 8 penuh). Deviasi format dari spec §4.2 tercatat terbuka.
+- Pooled meta-analysis **direproduksi dari parquet** oleh `pooled_meta()` (inverse-variance FE + DerSimonian-Laird RE): FE $3,83 [2,89; 4,77]; RE $4,87 [3,06; 6,68]; I² 66% — cocok §2.5 persis.
+- 12 test baru (`tests/test_dashboard.py`) mengunci angka dashboard ke registri §2.2–§2.6 (KPI panel, percentil CLV, ukuran/behavior segmen, flag & ATT backbone, redemption, pooled) + label kepatuhan di markup (observational/unconfoundedness, proxy dalam satu retailer, CLV 52 minggu, margin = parameter asumsi) + frasa terlarang R2 kini juga dipindai di `outputs/*.html`.
+- QA visual (browser): DOM 1 header / 3 halaman, tanpa overflow horizontal (scrollW == clientW ≤ viewport), forest plot 20 baris + label terbaca. (Catatan: screenshot fullPage browser menghasilkan artefak tiling — jangan pakai sebagai bukti; audit DOM + screenshot viewport yang dipakai.)
+
 ---
 
 ## 3. Jebakan data (baca sebelum menulis query pertama)
@@ -134,6 +142,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 - Kolom mentah `UPPER_CASE`; di layer processed dinormalisasi ke `snake_case` (`household_key`, `week_no`, `net_spend`, ...). Jangan campur dua gaya dalam satu tabel.
 - Semua fungsi random menerima `random_state`/`seed`; default `RANDOM_STATE = 42` di satu tempat.
 - Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini (11): `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`, `campaign_did_results`, `campaign_event_study`, `segments`, `segment_summary`; bertambah per phase (uplift, ROI, dst.).
+- Deliverable dashboard MVP = `outputs/dashboard.html` (HTML self-contained, dibangun `src/dashboard.py`, deterministik; angka dikunci `tests/test_dashboard.py` — regenerasi wajib `python -m src.dashboard` agar committed == rebuild).
 - Setiap tabel hasil yang masuk dashboard harus punya kolom `n`, `ci_low`, `ci_high` (kalau estimasi) dan `reliability_flag` (kalau campaign).
 
 ---
@@ -142,7 +151,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 
 - Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`; path kernel diperbarui 2026-10-24 setelah repo pindah direktori).
 - Versi terverifikasi di mesin ini (2026-10-23) — core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`; modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`. `causalml` **tidak** dipasang — alternatifnya `econml`.
-- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 57 test atas data asli dalam 5 modul (panel, clv, cohorts, did, segments; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
+- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 69 test atas data asli dalam 6 modul (panel, clv, cohorts, did, segments, dashboard; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
 - `setuptools` ditahan `<81` karena `lifetimes 0.11.3` masih impor `pkg_resources`.
 - Git: branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`.
 - File requirements: `requirements.txt` (inti), `requirements-modeling.txt` (Phase 2/6), `requirements-dev.txt` (pytest), `requirements.lock.txt` (freeze persis). **Perintah setup lengkap ada di README — jangan diduplikasi di sini.** Cek sehat: `python -m pip check` → "No broken requirements found."
@@ -247,8 +256,8 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Status & utang terbuka
 
-**Status:** Phase 0–5 selesai dengan DoD penuh — hasil terverifikasi di §2.2–§2.6. Terakhir: segmentasi 3 segmen efektif (ARI 0,646; churn gap p95 = 5 minggu dari data). 57/57 test hijau, 5 notebook ter-render, `main` sinkron dengan remote. **Cut line MVP tercapai di sisi analisis** — tersisa dashboard halaman 1–3 + README final (Phase 8 sebagian). Status resmi per phase: README (SOT status).
+**Status:** **Cut line MVP tercapai (2026-10-25)** — Phase 0–5 dengan DoD penuh (hasil terverifikasi §2.2–§2.6) + dashboard halaman 1–3 (`outputs/dashboard.html`, §2.7/DL-016) + README final. 69/69 test hijau (6 modul), 5 notebook ter-render, `main` sinkron dengan remote. Status resmi per phase: README (SOT status).
 
-**Utang terbuka:** tidak ada yang memblokir. Dua catatan desain dari investigasi P4 sudah dituntaskan: balance menengah diselesaikan overlap weights (DL-012); diagnostik bootstrap membuktikan CI bobot-tetap setara refit-PS (jinak). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
+**Utang terbuka:** tidak ada yang memblokir. Halaman dashboard 4 (Voucher Efficiency) dan what-if parameter menunggu angka Phase 7; Power BI + star schema ditunda ke Phase 8 penuh (DL-016). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
 
-**Berikutnya:** tutup cut line MVP — dashboard halaman 1–3 + README final (bagian dari Phase 8). Setelah MVP stabil: Phase 6 (uplift dua tahap) dan Phase 7 (ROI simulasi voucher) sebagai lapisan pembeda.
+**Berikutnya:** Phase 6 — uplift dua tahap (Stage 1 randomized X5/Hillstrom; Stage 2 observational Dunnhumby dengan split by campaign time + GroupKFold by household), lalu Phase 7 — simulasi ROI; rencana eksekusi ada di `docs/plan-phase6-7.md` (lokal). Setelah itu Phase 8 penuh: halaman dashboard 4, star schema + Power BI, playbook, slide re-run, `targeting_sample.xlsx`.

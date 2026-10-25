@@ -25,9 +25,9 @@ Analisis efektivitas voucher pada panel belanja Dunnhumby Complete Journey — 2
 | 5 | Segmentasi K-means + stabilitas ARI | ✅ selesai — 3 segmen efektif (k=5 core-fit + konsolidasi); ARI 0,646; churn threshold gap p95=5 mgg dari data |
 | 6 | Uplift dua tahap (randomized + observational) | belum mulai — akses data Stage 1 terverifikasi |
 | 7 | Simulasi ROI voucher (3 skenario + sensitivitas) | belum mulai |
-| 8 | Dashboard 4 halaman + playbook + slide re-run | belum mulai |
+| 8 | Dashboard 4 halaman + playbook + slide re-run | sebagian — dashboard hal. 1–3 ✅ ([outputs/dashboard.html](outputs/dashboard.html), HTML self-contained); hal. 4 + playbook + slide + Excel setelah Phase 7 |
 
-**Cut line MVP:** Phase 4–5 + dashboard halaman 1–3 + README; Phase 6–7 adalah lapisan pembeda setelah MVP stabil.
+**Cut line MVP: tercapai (2026-10-25).** Phase 0–5 tuntas + dashboard halaman 1–3 + README final. Dashboard MVP: [outputs/dashboard.html](outputs/dashboard.html) — Member Overview, Segment Deep Dive, Campaign Lift; satu file self-contained (tanpa dependensi eksternal), flag reliabilitas campaign tampil beserta alasannya, dibangun deterministik dari parquet analisis dan dikunci suite test. Phase 6–7 (uplift, ROI) adalah lapisan pembeda berikutnya, lalu Phase 8 penuh (halaman 4 + playbook + slide + Excel + star schema).
 
 ## Asumsi utama
 
@@ -69,7 +69,7 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 
 ## Data
 
-Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai suite test di `tests/` (5 modul: panel, CLV, cohort, DiD, segment); registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort, hasil DiD + event study, segmen + ringkasan segmen).
+Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai suite test di `tests/` (6 modul: panel, CLV, cohort, DiD, segment, dashboard); registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort, hasil DiD + event study, segmen + ringkasan segmen).
 
 ## Struktur repo
 
@@ -78,10 +78,11 @@ Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data
   data/               # CSV mentah (gitignored) + data/processed/*.parquet (gitignored)
   docs/               # decision log + rencana sprint (lokal, di-gitignore)
   notebooks/          # 01_panel … 05_segments — ter-render; logika di src/
-  src/                # features.py, clv.py, cohorts.py, did.py, segments.py (uplift_eval.py, simulate.py menyusul)
+  src/                # features.py, clv.py, cohorts.py, did.py, segments.py, dashboard.py (uplift_eval.py, simulate.py menyusul)
   tests/              # assertion kualitas data & invariant hasil
   conftest.py         # session fixtures dari data asli (dibangun sekali per run)
-  powerbi/ outputs/   # Phase 8
+  powerbi/            # Phase 8 penuh: .pbix + star schema export
+  outputs/            # dashboard.html (MVP) — targeting_sample.xlsx, playbook.md menyusul
 ```
 
 ## Setup

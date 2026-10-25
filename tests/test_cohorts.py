@@ -113,6 +113,7 @@ def test_banned_phrase_absent_from_deliverables():
     targets = [REPO / "README.md"]
     targets += sorted((REPO / "notebooks").glob("*.ipynb"))
     targets += sorted((REPO / "src").glob("*.py"))
+    targets += sorted((REPO / "outputs").glob("*.html"))
     offenders = [
         str(t.relative_to(REPO))
         for t in targets
