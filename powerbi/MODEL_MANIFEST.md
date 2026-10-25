@@ -7,7 +7,7 @@ perakitan visual. Estimasi usaha: ±2–4 jam pertama kali.
 
 - Sumber data: `data/processed/star/*.csv` (8 file; dibangun ulang dengan `python -m src.starschema`)
 - Referensi visual: [`outputs/dashboard.html`](../outputs/dashboard.html) (buka di browser; 4 halaman dengan angka identik)
-- Label wajib di semua halaman: **"observational — di bawah asumsi unconfoundedness"** (efek campaign/uplift), **"proxy dalam satu retailer"** (whitespace), **margin = parameter asumsi**. Frasa "share of wallet" dilarang.
+- Label wajib di semua halaman: **"observational — di bawah asumsi unconfoundedness"** (efek campaign/uplift), **"proxy dalam satu retailer"** (whitespace), **margin = parameter asumsi**. Frasa dompet-lintas-ritel yang dilarang (lihat aturan R2 di AGENTS.md) tidak boleh muncul di teks visual mana pun.
 
 ## 1. Impor
 

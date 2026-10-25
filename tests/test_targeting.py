@@ -54,6 +54,16 @@ def test_xlsx_artifact_structure():
     assert BANNED.search(blob) is None
 
 
+def test_committed_xlsx_is_current():
+    """The committed workbook must equal a fresh deterministic build
+    (values exact; xlsx stores integers as floats so dtypes are ignored)."""
+    if not OUTPUT_XLSX.exists():
+        pytest.skip("targeting_sample.xlsx not built yet")
+    committed = pd.read_excel(OUTPUT_XLSX, sheet_name="output").reset_index(drop=True)
+    fresh = build_targeting_list().reset_index(drop=True)
+    pd.testing.assert_frame_equal(fresh, committed, check_dtype=False, check_exact=True)
+
+
 def test_playbook_required_content():
     text = PLAYBOOK.read_text(encoding="utf-8")
     for needle in [

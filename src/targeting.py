@@ -94,7 +94,7 @@ def build_targeting_list() -> pd.DataFrame:
         .merge(clv[["household_key", "clv_decile"]], on="household_key", validate="1:1")
         .merge(top_ws, on="household_key", how="left", validate="1:1")
     )
-    out["promo_dependence"] = out["household_key"].map(promo)
+    out["promo_dependence"] = out["household_key"].map(promo).round(6)
     out["uplift_score"] = out["score_x"].round(3)
     out["recommended_offer"] = [
         _offer_rule(int(s), int(d)) for s, d in zip(out["segment"], out["uplift_decile"])

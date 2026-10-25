@@ -93,7 +93,7 @@ Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data
   data/               # CSV mentah (gitignored) + data/processed/*.parquet (gitignored)
   docs/               # decision log + rencana sprint (lokal, di-gitignore)
   notebooks/          # 01_panel … 08_roi_sim — ter-render; logika di src/
-  src/                # features, clv, cohorts, did, segments, dashboard, x5, uplift_learners, uplift_eval, uplift_obs, simulate
+  src/                # features, clv, cohorts, did, segments, dashboard, x5, uplift_learners, uplift_eval, uplift_obs, simulate, starschema, targeting
   tests/              # assertion kualitas data & invariant hasil
   conftest.py         # session fixtures dari data asli (dibangun sekali per run)
   powerbi/            # MODEL_MANIFEST.md (panduan build .pbix) — .pbix dirakit manual
