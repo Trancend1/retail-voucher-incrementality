@@ -133,7 +133,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 - Notebook bernomor sesuai urutan phase; nama file stabil karena dirujuk dari README.
 - Kolom mentah `UPPER_CASE`; di layer processed dinormalisasi ke `snake_case` (`household_key`, `week_no`, `net_spend`, ...). Jangan campur dua gaya dalam satu tabel.
 - Semua fungsi random menerima `random_state`/`seed`; default `RANDOM_STATE = 42` di satu tempat.
-- Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini: `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`; bertambah per phase (`campaign_did_results`, `segments`, dst.).
+- Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini (11): `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`, `campaign_did_results`, `campaign_event_study`, `segments`, `segment_summary`; bertambah per phase (uplift, ROI, dst.).
 - Setiap tabel hasil yang masuk dashboard harus punya kolom `n`, `ci_low`, `ci_high` (kalau estimasi) dan `reliability_flag` (kalau campaign).
 
 ---
@@ -142,7 +142,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 
 - Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`; path kernel diperbarui 2026-10-24 setelah repo pindah direktori).
 - Versi terverifikasi di mesin ini (2026-10-23) — core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`; modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`. `causalml` **tidak** dipasang — alternatifnya `econml`.
-- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 40 test atas data asli (session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
+- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 57 test atas data asli dalam 5 modul (panel, clv, cohorts, did, segments; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
 - `setuptools` ditahan `<81` karena `lifetimes 0.11.3` masih impor `pkg_resources`.
 - Git: branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`.
 - File requirements: `requirements.txt` (inti), `requirements-modeling.txt` (Phase 2/6), `requirements-dev.txt` (pytest), `requirements.lock.txt` (freeze persis). **Perintah setup lengkap ada di README — jangan diduplikasi di sini.** Cek sehat: `python -m pip check` → "No broken requirements found."
@@ -251,4 +251,4 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 **Utang terbuka:** tidak ada yang memblokir. Dua catatan desain dari investigasi P4 sudah dituntaskan: balance menengah diselesaikan overlap weights (DL-012); diagnostik bootstrap membuktikan CI bobot-tetap setara refit-PS (jinak). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
 
-**Berikutnya:** Phase 5 (segmentasi K-means + stabilitas ARI) — phase terakhir sebelum cut line MVP (tinggal Phase 5 + dashboard halaman 1–3 + README).
+**Berikutnya:** tutup cut line MVP — dashboard halaman 1–3 + README final (bagian dari Phase 8). Setelah MVP stabil: Phase 6 (uplift dua tahap) dan Phase 7 (ROI simulasi voucher) sebagai lapisan pembeda.

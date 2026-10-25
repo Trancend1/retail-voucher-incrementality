@@ -69,7 +69,7 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 
 ## Data
 
-Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai 40 test di `tests/`; registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai 7 parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort).
+Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai suite test di `tests/` (5 modul: panel, CLV, cohort, DiD, segment); registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort, hasil DiD + event study, segmen + ringkasan segmen).
 
 ## Struktur repo
 
@@ -77,8 +77,8 @@ Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data
 .
   data/               # CSV mentah (gitignored) + data/processed/*.parquet (gitignored)
   docs/               # decision log + rencana sprint (lokal, di-gitignore)
-  notebooks/          # 01_panel, 02_clv, 03_penetration_gap — ter-render; logika di src/
-  src/                # features.py, clv.py, cohorts.py (did.py, uplift_eval.py, simulate.py menyusul)
+  notebooks/          # 01_panel … 05_segments — ter-render; logika di src/
+  src/                # features.py, clv.py, cohorts.py, did.py, segments.py (uplift_eval.py, simulate.py menyusul)
   tests/              # assertion kualitas data & invariant hasil
   conftest.py         # session fixtures dari data asli (dibangun sekali per run)
   powerbi/ outputs/   # Phase 8
