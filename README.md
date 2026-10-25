@@ -36,19 +36,6 @@ Analisis efektivitas voucher pada panel belanja Dunnhumby Complete Journey — 2
 
 **Uplift dua tahap & ekonomi voucher.** Mesin uplift divalidasi dulu di eksperimen acak X5 (200 ribu member; decile teratas T-learner +12,0 pp [9,3–14,5] ≈ 3× efek rata-rata), lalu dipakai di panel Dunnhumby dengan pengaman penuh: split mengikuti waktu campaign, fitur ketat pra-campaign, evaluasi berbobot overlap, placebo treatment-palsu yang lolos. Hasilnya: decile teratas X-learner **+$14,7/minggu [9,7–20,2]** (≈2,3× efek rata-rata), dan pada simulasi ROI atas 8 campaign akhir yang tak pernah dilihat model, **top-2 decile menghasilkan $232 per $1 voucher (batas ketat; konservatif $31,7)** vs blanket $90/$12,3 dan RFM naif $62/$9,8. RFM justru kalah dari blanket pada batas ketat — audiens high-spend-nya membakar kupon terbanyak dengan incremental terkecil. Kekalahan & kelemahan juga ditulis: T-learner tidak konsisten antar subset, decile tengah tidak monoton, margin di validasi silang sisi train tipis — angka selalu dibaca indikatif dengan CI, dan keputusan produksi memerlukan holdout eksperimen 10%.
 
-## Status fase
-
-| Fase | Isi | Status |
-|---|---|---|
-| 0–1 | Panel `hh_week` + timeline campaign + kelayakan DiD | ✅ selesai (5/5 gate) |
-| 2 | RFM + CLV 52 minggu + uji vs baseline naif | ✅ selesai — model kalah dari naif, ditulis apa adanya |
-| 3 | Penetration gap per cohort + whitespace per member | ✅ selesai — berlabel `proxy dalam satu retailer` |
-| 4 | Campaign DiD + event study + covariate balance | ✅ selesai — 14/30 lolos semua gate; pooled $3,8–4,9/minggu |
-| 5 | Segmentasi K-means + stabilitas ARI | ✅ selesai — 3 segmen efektif; churn threshold dari data |
-| 6 | Uplift dua tahap (randomized + observational) | ✅ selesai — Stage 1 X5 + Stage 2 Dunnhumby; placebo lolos |
-| 7 | Simulasi ROI voucher (5 skenario + sensitivitas) | ✅ selesai — top-2 decile $232/$1; break-even ≤8,1% |
-| 8 | Deliverable | ✅ dashboard 4 halaman, star schema, Excel targeting, playbook, slide re-run; file `.pbix` dirakit terpisah di Power BI Desktop mengikuti [MODEL_MANIFEST.md](powerbi/MODEL_MANIFEST.md) |
-
 ## Deliverable
 
 - [outputs/dashboard.html](outputs/dashboard.html) — dashboard 4 halaman (Member Overview, Segment Deep Dive, Campaign Lift, Voucher Efficiency) dalam satu file self-contained; halaman 4 punya **what-if interaktif** (slider margin & proporsi targeting); flag reliabilitas campaign tampil beserta alasannya.

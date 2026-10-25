@@ -5,9 +5,9 @@
 | Topik | SOT | Kalau bertentangan |
 |---|---|---|
 | Requirement & desain analisis | [`the-complete-journey.md`](the-complete-journey.md) | Spec menang — perbaiki file yang menyimpang, jangan menyimpang diam-diam |
-| Framing bisnis, status phase, limitation publik, struktur repo, setup env | [`README.md`](README.md) | — |
+| Framing bisnis, limitation publik, dokumentasi proyek (struktur repo, deliverable, setup env) | [`README.md`](README.md) | — |
 | Keputusan formal yang mengikat semua phase | [`docs/decision-log.md`](docs/decision-log.md) | Perubahan hanya lewat entri baru, bukan edit diam-diam |
-| Fakta data terverifikasi, jebakan, aturan kerja, quality gate | File ini | Angka yang tidak tercatat di §2 = belum terverifikasi — verifikasi dari data sebelum dipakai/dikutip |
+| Fakta data terverifikasi, jebakan, aturan kerja, quality gate, **status fase (§9)** | File ini | Angka yang tidak tercatat di §2 = belum terverifikasi — verifikasi dari data sebelum dipakai/dikutip |
 
 Konteks singkat: analisis efektivitas voucher/campaign retail di panel Dunnhumby Complete Journey (±2.500 household, 102 minggu), methodology transfer ke use case member loyalty ritel Indonesia. Alur: RFM/CLV → category penetration gap → campaign effect (DiD) → segmentasi → uplift (2 tahap) → simulasi ROI voucher.
 
@@ -228,7 +228,7 @@ Jebakan lingkungan:
 ## 6. Alur kerja agent
 
 1. **Baca** `AGENTS.md` + `the-complete-journey.md`. Cek `data/` lengkap (8 CSV).
-2. **Ikuti urutan fase** (status resmi ada di README milestone). Estimasi efek (DiD, Phase 4) harus tuntas sebelum uplift modeling (Phase 6). Daftar campaign layak + control pool sudah tersedia di `data/processed/campaign_timeline.parquet` — jangan dihitung ulang dengan definisi lain.
+2. **Ikuti urutan fase** (status resmi ada di §9 tabel fase). Estimasi efek (DiD, Phase 4) harus tuntas sebelum uplift modeling (Phase 6). Daftar campaign layak + control pool sudah tersedia di `data/processed/campaign_timeline.parquet` — jangan dihitung ulang dengan definisi lain.
 3. **Kerjakan per phase, bukan per file.** Satu phase = notebook + modul `src/` terkait + artefak parquet + catatan limitation.
 4. **Verifikasi sebelum klaim selesai.** Jalankan notebook end-to-end dari kernel bersih; tempel angka kunci (n, lift, CI) di ringkasan. Jangan menulis "sudah selesai" berdasarkan notebook yang hanya jalan sebagian.
 5. **Setiap phase menambah bagian limitation di README** kalau ada asumsi baru.
@@ -307,7 +307,7 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ### Gaya penulisan naratif (notebook & deliverable)
 
-- Notebook ditulis untuk **pembaca analisis**, bukan sebagai pelacak proyek: tanpa rujukan langkah/sprint/checkpoint/gate, tanpa frasa status progres ("selesai", "belum mulai", "menunggu persetujuan"), tanpa tanggal kecuali tanggalnya bagian dari data. Status & progres hanya hidup di README (milestone) dan `docs/sprint-*.md` (lokal).
+- Notebook ditulis untuk **pembaca analisis**, bukan sebagai pelacak proyek: tanpa rujukan langkah/sprint/checkpoint/gate, tanpa frasa status progres ("selesai", "belum mulai", "menunggu persetujuan"), tanpa tanggal kecuali tanggalnya bagian dari data. Status & progres hanya hidup di file ini (§9) dan `docs/sprint-*.md` (lokal) — README murni dokumentasi proyek untuk pembaca publik.
 - Setiap bagian dibuka dengan *mengapa* — pertanyaan atau insight yang memotivasi bagian itu; definisi teknis menyusul setelahnya, bukan dibuka dengan daftar isi atau "pada bagian ini akan dibahas…".
 - Istilah teknikal penting dipertahankan apa adanya (nama kolom, `net`, `promo_share`, BG/NBD, `CLV 52 minggu`, holdout, Spearman, p99). Jargon proses internal — nomor langkah, sprint, gate, ID keputusan (DL-xxx), ID aturan (Rxx) — **tidak muncul** di narasi notebook: definisinya ditulis langsung; rujukan ke decision log cukup satu kali di bagian pembuka.
 - Buang kalimat statis/pengisi ("seperti telah disebutkan", "selanjutnya kita akan") dan angka yang cepat basi (mis. jumlah test saat ini) — setiap kalimat harus membawa informasi: angka, asumsi, atau konsekuensi.
@@ -317,7 +317,20 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Status & utang terbuka
 
-**Status:** Analisis inti tuntas (P0–P7, §2.2–§2.10). **Phase 8: p8a + p8b selesai** — dashboard 4 halaman + what-if (§2.11), star schema + manifest Power BI, `targeting_sample.xlsx` (2.498 member) + `playbook.md` + `rerun_slide.md` (§2.12), README final dengan bagian deliverable. 107/107 test hijau (12 modul), 8 notebook ter-render, `main` sinkron dengan remote. Tersisa satu langkah: **p8c — user merakit `.pbix`** mengikuti `powerbi/MODEL_MANIFEST.md`; agent me-review screenshot terhadap checklist gate. Status resmi per fase: README (SOT status).
+**Status:** Analisis inti tuntas (P0–P7, §2.2–§2.10). **Phase 8: p8a + p8b selesai** — dashboard 4 halaman + what-if (§2.11), star schema + manifest Power BI, `targeting_sample.xlsx` (2.498 member) + `playbook.md` + `rerun_slide.md` (§2.12), README final dengan bagian deliverable. 107/107 test hijau (12 modul), 8 notebook ter-render, `main` sinkron dengan remote. Tersisa satu langkah: **p8c — user merakit `.pbix`** mengikuti `powerbi/MODEL_MANIFEST.md`; agent me-review screenshot terhadap checklist gate.
+
+**Status per fase (SOT status — README murni dokumentasi publik, tidak memuat status):**
+
+| Fase | Isi | Status |
+|---|---|---|
+| 0–1 | Panel `hh_week` + timeline campaign + kelayakan DiD | ✅ selesai, 5/5 gate (§2.2) |
+| 2 | RFM + CLV 52 minggu + uji vs baseline naif | ✅ selesai — model kalah dari naif, ditulis apa adanya (§2.3) |
+| 3 | Penetration gap per cohort + whitespace per member | ✅ selesai — berlabel `proxy dalam satu retailer` (§2.4) |
+| 4 | Campaign DiD + event study + covariate balance | ✅ selesai — 14/30 lolos semua gate; pooled $3,8–4,9/minggu (§2.5) |
+| 5 | Segmentasi K-means + stabilitas ARI | ✅ selesai — 3 segmen efektif; churn threshold dari data (§2.6) |
+| 6 | Uplift dua tahap (randomized + observational) | ✅ selesai — Stage 1 X5 (§2.8) + Stage 2 Dunnhumby (§2.9); placebo lolos |
+| 7 | Simulasi ROI voucher (5 skenario + sensitivitas) | ✅ selesai — top-2 decile $232/$1; break-even ≤8,1% (§2.10) |
+| 8 | Deliverable | 🟡 dashboard 4 halaman + star schema + xlsx + playbook + slide selesai (§2.11–§2.12); tersisa `.pbix` (p8c, user, via MODEL_MANIFEST.md) |
 
 **Utang terbuka:** tidak ada yang memblokir. Halaman dashboard 4 (Voucher Efficiency) + what-if menunggu angka Phase 7; Power BI + star schema ditunda ke Phase 8 penuh (DL-016). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
 
