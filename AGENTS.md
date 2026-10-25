@@ -129,7 +129,22 @@ Implikasi: control group harus didefinisikan per campaign ("tidak ditarget campa
 
 ---
 
+### 2.9 Hasil terverifikasi Phase 6 Stage 2 — uplift observational Dunnhumby (2026-10-25, sprint p6b)
+
+- Panel household×campaign (`src/uplift_obs.py`, dari parquet processed): **37.976 baris** / 20 campaign terestimasi; treated 6.778 (17,9%). Fitur 9 kolom pre-window (7 fitur DiD + `n_campaigns_before`/`redemption_rate_before` (distink per campaign, bukan per kupon)/`tenure_weeks`; 43 baris tenure<0 — member belum belanja saat campaign mulai, dibiarkan & dilaporkan). Outcome Δ = spend net mingguan window − pre-8-mgg (USD/mgg).
+- **Split waktu ketat** (R6): 12 campaign train (s.d. minggu mulai 77) vs 8 test (mulai minggu 81: 5 `layak` + 3 `flagged` — flagged tetap dievaluasi dengan flag-nya, R7). Model hanya di-fit pada 9 campaign train lolos gate (17.733 baris); dummy campaign memakai vocab tetap (campaign test = kolom nol, seperti deployment di campaign baru).
+- Test (n=14.090, bobot overlap): **ATE acak +$6,31/mgg [4,80; 7,68]**; subset lolos gate (n=8.021): +$8,26 [5,87; 10,57].
+- **X-learner unggul**: decile-1 **+$14,66/mgg [9,66; 20,22]** (≈2,3× ATE); AUUC skill +8.820 (+$0,626/member); gain@20% +$11,32/member — vs **RFM naif** +$0,370/+$8,08 dan T-learner +$0,096 (T tidak konsisten: layak-only −$0,112). Decile tengah X tidak monoton; decile-10 tinggi (+$8,0) — sebagian skill datang dari ekor, diungkap.
+- Korelasi skor X vs RFM **−0,31** (komplementer — X menemukan responsif di populasi margin belanja menengah-kecil); decile 9–10 RFM n_treated 12–20 < 30 → NaN (R8 bekerja).
+- **OOF train (GroupKFold by household): X hanya +$0,042/member** — keunggulan besar muncul di campaign akhir; angka test dibaca indikatif (spesifikasi-sensitif), diungkap di notebook.
+- **Placebo lolos** (treatment dipermutasi per campaign, outcome Δ pre, seluruh pipeline di-refit): ATE +$1,71 [−0,39; 3,61] memuat 0; decile-1 CI memuat 0; skill −516 (≈0).
+- R9: **X menang dari random & RFM pada test** (skill + gain@20%); T kalah/tidak konsisten; margin OOF tipis dilaporkan apa adanya. Semua klaim berlabel observational (R1).
+- Artefak: `uplift_scores.parquet` (14.090 × 14; skor T/X/RFM + ps + bobot + flag + segmen) & `uplift_eval_results.parquet` (decile long-form 3 skor × 10).
+
+---
+
 ## 3. Jebakan data (baca sebelum menulis query pertama)
+
 
 
 1. **Diskon bernilai negatif.** `RETAIL_DISC`, `COUPON_DISC`, `COUPON_MATCH_DISC` negatif (50% baris `RETAIL_DISC` < 0). `promo_share` wajib pakai `abs()`:
@@ -153,7 +168,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 - Notebook bernomor sesuai urutan phase; nama file stabil karena dirujuk dari README.
 - Kolom mentah `UPPER_CASE`; di layer processed dinormalisasi ke `snake_case` (`household_key`, `week_no`, `net_spend`, ...). Jangan campur dua gaya dalam satu tabel.
 - Semua fungsi random menerima `random_state`/`seed`; default `RANDOM_STATE = 42` di satu tempat.
-- Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini (12): `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`, `campaign_did_results`, `campaign_event_study`, `segments`, `segment_summary`, `x5_client_features`; bertambah per phase (uplift Stage 2, ROI, dst.). Data eksternal (X5 ±740 MB) hidup di `data/external/` (gitignored), hanya turunan fiturnya yang jadi parquet.
+- Artefak antar-phase = parquet di `data/processed/` dengan nama yang menyebut grain — saat ini (14): `hh_week`, `campaign_timeline`, `hh_clv`, `hh_category`, `hh_campaign`, `hh_whitespace`, `cohort_category`, `campaign_did_results`, `campaign_event_study`, `segments`, `segment_summary`, `x5_client_features`, `uplift_scores`, `uplift_eval_results`; bertambah per phase (ROI, dst.). Data eksternal (X5 ±740 MB) hidup di `data/external/` (gitignored), hanya turunan fiturnya yang jadi parquet.
 - Deliverable dashboard MVP = `outputs/dashboard.html` (HTML self-contained, dibangun `src/dashboard.py`, deterministik; angka dikunci `tests/test_dashboard.py` — regenerasi wajib `python -m src.dashboard` agar committed == rebuild).
 - Setiap tabel hasil yang masuk dashboard harus punya kolom `n`, `ci_low`, `ci_high` (kalau estimasi) dan `reliability_flag` (kalau campaign).
 
@@ -163,7 +178,7 @@ Struktur direktori (target dan aktual) ada di README; struktur target berasal da
 
 - Python **3.12.7**, venv di **`notebooks/.venv`** (bukan root); kernel Jupyter: **Python (Dunnhumby 3.12)** (`--name dunnhumby`; path kernel diperbarui 2026-10-24 setelah repo pindah direktori).
 - Versi terverifikasi di mesin ini (2026-10-23) — core: `pandas 3.0.3`, `numpy 2.4.6`, `duckdb 2.0.0`, `polars 2.0.0`, `pyarrow 26.0.0`, `scipy 1.18.1`, `statsmodels 0.15.0`, `scikit-learn 1.8.0`, `matplotlib 3.9.3`, `seaborn 0.13.2`, `jupyterlab 4.6.4`; modeling: `lifetimes 0.11.3`, `pymc-marketing 1.3.0` (menarik `pymc 6.3.2`), `scikit-uplift 0.5.1`, `econml 0.17.0`. `causalml` **tidak** dipasang — alternatifnya `econml`.
-- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 83 test atas data asli dalam 8 modul (panel, clv, cohorts, did, segments, dashboard, uplift_eval, x5; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
+- Test runner: `pytest 9.1.1`, config `pytest.ini`; suite `tests/` = 90 test atas data asli dalam 9 modul (panel, clv, cohorts, did, segments, dashboard, uplift_eval, x5, uplift_obs; session fixtures di `conftest.py`, dibangun sekali per run). Test baru ditulis tiap phase bersama modul `src/` terkait.
 - `setuptools` ditahan `<81` karena `lifetimes 0.11.3` masih impor `pkg_resources`.
 - Git: branch `main`, remote `origin` = `github.com/Trancend1/retail-voucher-incrementality`.
 - File requirements: `requirements.txt` (inti), `requirements-modeling.txt` (Phase 2/6), `requirements-dev.txt` (pytest), `requirements.lock.txt` (freeze persis). **Perintah setup lengkap ada di README — jangan diduplikasi di sini.** Cek sehat: `python -m pip check` → "No broken requirements found."
@@ -268,8 +283,8 @@ Definition of done minimum. Gate yang gagal = phase belum selesai, walau noteboo
 
 ## 9. Status & utang terbuka
 
-**Status:** Cut line MVP tercapai (2026-10-25) — Phase 0–5 DoD penuh + dashboard hal. 1–3 + README final (§2.2–§2.7). **Phase 6 Stage 1 selesai** (§2.8): pipeline uplift tervalidasi di X5 randomized — T-learner decile-1 +12,0 pp [9,3; 14,5] ≈ 3× ATE, AUUC skill +344 vs acak. 83/83 test hijau (8 modul), 6 notebook ter-render, `main` sinkron dengan remote. Status resmi per phase: README (SOT status).
+**Status:** Cut line MVP tercapai (2026-10-25) — Phase 0–5 DoD penuh + dashboard hal. 1–3 + README final (§2.2–§2.7). **Phase 6 selesai dua tahap**: Stage 1 randomized X5 (§2.8) + Stage 2 observational Dunnhumby (§2.9) — X-learner decile-1 +$14,66/mgg [9,66; 20,22] ≈ 2,3× ATE acak, gain@20% +$11,32/member vs RFM +$8,08, placebo lolos. 90/90 test hijau (9 modul), 7 notebook ter-render, `main` sinkron dengan remote. Status resmi per phase: README (SOT status).
 
 **Utang terbuka:** tidak ada yang memblokir. Halaman dashboard 4 (Voucher Efficiency) + what-if menunggu angka Phase 7; Power BI + star schema ditunda ke Phase 8 penuh (DL-016). Dua hal dibiarkan **disengaja**: warning autograd terlihat; `docs/` lokal/di-gitignore.
 
-**Berikutnya:** Phase 6 Stage 2 — uplift observational Dunnhumby (unit household × campaign, fitur pre-window + trajektori/dip ala DL-014, split by campaign time + GroupKFold by household, propensity + overlap weighting, placebo test, decile + CI) — lihat `docs/plan-phase6-7.md` (lokal). Lalu Phase 7 (ROI), lalu Phase 8 penuh.
+**Berikutnya:** Phase 7 — simulasi ROI voucher (3 skenario targeting blanket/top-2/top-4 decile pada campaign held-out pakai `uplift_scores.parquet`; voucher cost dua batas DL-013; margin 15/25/35 + bootstrap CI; break-even) — lihat `docs/plan-phase6-7.md` (lokal). Lalu Phase 8 penuh: dashboard hal. 4, star schema + Power BI, playbook, slide re-run, `targeting_sample.xlsx`.

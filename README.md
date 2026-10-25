@@ -23,7 +23,7 @@ Analisis efektivitas voucher pada panel belanja Dunnhumby Complete Journey — 2
 | 3 | Penetration gap per cohort + whitespace per member | ✅ selesai — berlabel `proxy dalam satu retailer` |
 | 4 | Campaign DiD + event study + covariate balance | ✅ selesai — 14/30 lolos semua gate (dua placebo); backbone 8 & 13 signifikan BH (+9,8% / +15,2%); pooled $3,8–4,9/minggu; seleksi win-back terkondisikan |
 | 5 | Segmentasi K-means + stabilitas ARI | ✅ selesai — 3 segmen efektif (k=5 core-fit + konsolidasi); ARI 0,646; churn threshold gap p95=5 mgg dari data |
-| 6 | Uplift dua tahap (randomized + observational) | sebagian — **Stage 1 selesai** (X5 randomized: pipeline tervalidasi; T-learner decile-1 +12,0 pp ≈ 3× ATE, AUUC skill +344 vs targeting acak, margin moderat diungkap); Stage 2 observational menyusul |
+| 6 | Uplift dua tahap (randomized + observational) | ✅ selesai — Stage 1 X5 randomized (decile-1 +12,0 pp ≈ 3× ATE); Stage 2 observational Dunnhumby: X-learner decile-1 **+$14,7/mgg [9,7; 20,2]** ≈ 2,3× ATE acak, gain@20% +$11,32/member vs RFM naif +$8,08, placebo lolos; T-learner tidak konsisten & decile tengah tidak monoton — diungkap; semua berlabel observational |
 | 7 | Simulasi ROI voucher (3 skenario + sensitivitas) | belum mulai |
 | 8 | Dashboard 4 halaman + playbook + slide re-run | sebagian — dashboard hal. 1–3 ✅ ([outputs/dashboard.html](outputs/dashboard.html), HTML self-contained); hal. 4 + playbook + slide + Excel setelah Phase 7 |
 
@@ -55,6 +55,7 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 - Efek campaign terverifikasi untuk 14 campaign; seleksi win-back membuat estimasi spesifikasi-sensitif (±30%) dan sisa bias mean-reversion tak bisa dikecualikan; campaign 18 ditandai (gagal placebo jauh meski signifikan); biaya voucher dua batas (atribusi ketat vs semua kupon), keduanya proxy.
 - Segmen bersifat deskriptif dengan struktur lembut (silhouette rendah; bukti kelayakannya stabilitas ARI 0,646, bukan ketajaman klaster); share kategori komposisional tanpa transformasi log-ratio; aksi segmen adalah kandidat uji, bukan klaim kausal.
 - Hasil uplift Stage 1 berasal dari panel eksternal (X5 RetailHero, ritel Rusia): validasi metode pada eksperimen acak, bukan angka bisnis Dunnhumby — targetnya biner (jumlah belanja naik), fiturnya metadata kartu + agregat histori, dan propensity konstan hanya sah karena penugasan memang diacak. Skill ranking moderat (0,6–0,7 pp per client) dan decile tengah X-learner tidak monoton; urutan di bawah decile atas tidak dibaca halus.
+- Uplift Stage 2 bersifat observational (di bawah asumsi unconfoundedness): keunggulan X-learner atas RFM/random muncul di campaign akhir held-out, tetapi validasi silang sisi train hanya memberi margin tipis (+$0,04/member) — angka decile atas dibaca indikatif dengan CI; decile tengah tidak monoton; T-learner tidak konsisten antar subset; decile dengan n < 30 tidak diklaim.
 
 ## Hasil sejauh ini
 
@@ -68,9 +69,11 @@ Yang berikut belum terselesaikan dan sengaja tetap ditampilkan:
 
 **Segmentasi member — tiga wajah yang stabil.** K-means pada RFM (log) + ketergantungan promo + bauran 44 department, dengan pemilihan k berdasarkan stabilitas lintas seed dan lintas paruh periode (ARI 0,646) karena silhouette rendah di semua k — struktur segmen memang lembut, dan itu diakui. Tiga segmen efektif yang bertahan: **mesin pertumbuhan** (1.099 member; spend $4.386; churn 2,6%), **promo-dependent** (972; ketergantungan promo 0,23 tertinggi; churn 17%), dan **rentan hilang** (429; churn 39%; belanja terkecil) — masing-masing dengan satu aksi dari aturan tetap (aktivasi ulang / uji benefit non-diskon / dorong whitespace). Ambang churn datang dari distribusi panel (gap > p95 = 5 minggu), bukan angka bulat; top-1% spender ekstrem dikecualikan dari fitting dan ditugaskan ke centroid terdekat (terdokumentasi).
 
+**Uplift dua tahap — mesin divalidasi dulu, lalu dipakai dengan jujur.** Tahap 1 pada eksperimen acak X5 (200 ribu member) membuktikan kurva uplift, decile + CI, dan T/X-learner bekerja: decile teratas T-learner +12,0 pp [9,3–14,5], sekitar 3× efek rata-rata. Tahap 2 membawa mesin yang sama ke panel Dunnhumby yang observasional: split mengikuti waktu campaign (12 awal → 8 akhir), fitur ketat pra-campaign, evaluasi berbobot overlap, dan placebo treatment-palsu yang lolos (CI memuat nol). Hasilnya: decile teratas X-learner **+$14,7/minggu [9,7–20,2]** (≈2,3× efek rata-rata $6,3) dan pada target 20% populasi menghasilkan +$11,3 per member — melampaui RFM naif (+$8,1) — dengan skor yang justru berkorelasi negatif dengan RFM (menemukan member responsif di margin penargetan, bukan yang belanjanya paling besar). Kekalahan & kelemahan ditulis apa adanya: T-learner tidak konsisten antar subset, decile tengah tidak monoton, dan margin di validasi silang sisi train tipis — angka dibaca indikatif, selalu dengan CI, dan selalu berlabel observational.
+
 ## Data
 
-Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Data eksternal Stage 1 uplift (X5 RetailHero, ±740 MB via scikit-uplift) di-cache di `data/external/` — juga tidak di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai suite test di `tests/` (8 modul: panel, CLV, cohort, DiD, segment, dashboard, uplift, X5); registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort, hasil DiD + event study, segmen + ringkasan segmen, fitur client X5).
+Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data.csv`, 695 MB, opsional) — tidak pernah di-commit. Data eksternal Stage 1 uplift (X5 RetailHero, ±740 MB via scikit-uplift) di-cache di `data/external/` — juga tidak di-commit. Seluruh angka faktual di README ini dihitung ulang langsung dari CSV dan dikunci sebagai suite test di `tests/` (9 modul: panel, CLV, cohort, DiD, segment, dashboard, uplift randomized, X5, uplift observational); registri fakta terverifikasi ada di [AGENTS.md](AGENTS.md) §2, definisi metrik yang mengikat di [decision log](docs/decision-log.md). Turunan analisis hidup sebagai parquet di `data/processed/` (panel mingguan, timeline campaign, RFM/CLV, kategori, whitespace, benchmark cohort, hasil DiD + event study, segmen + ringkasan segmen, fitur client X5, skor uplift campaign akhir).
 
 ## Struktur repo
 
@@ -78,8 +81,8 @@ Dunnhumby *The Complete Journey*: 8 CSV mentah di `data/` (terbesar `causal_data
 .
   data/               # CSV mentah (gitignored) + data/processed/*.parquet (gitignored)
   docs/               # decision log + rencana sprint (lokal, di-gitignore)
-  notebooks/          # 01_panel … 06_uplift_randomized — ter-render; logika di src/
-  src/                # features, clv, cohorts, did, segments, dashboard, x5, uplift_learners, uplift_eval (simulate.py menyusul)
+  notebooks/          # 01_panel … 07_uplift_observational — ter-render; logika di src/
+  src/                # features, clv, cohorts, did, segments, dashboard, x5, uplift_learners, uplift_eval, uplift_obs (simulate.py menyusul)
   tests/              # assertion kualitas data & invariant hasil
   conftest.py         # session fixtures dari data asli (dibangun sekali per run)
   powerbi/            # Phase 8 penuh: .pbix + star schema export
